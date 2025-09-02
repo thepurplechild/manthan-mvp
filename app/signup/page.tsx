@@ -1,4 +1,4 @@
-// app/signup/page.tsx - Signup with Creator's Bill of Rights
+// app/signup/page.tsx - Fixed TypeScript errors
 'use client'
 
 import { useState } from 'react'
@@ -44,8 +44,9 @@ export default function SignUpPage() {
       if (error) throw error
 
       router.push('/dashboard')
-    } catch (error: any) {
-      setError(error.message)
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'An error occurred'
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }
@@ -135,7 +136,7 @@ export default function SignUpPage() {
                       onClick={() => setShowRightsModal(true)}
                       className="text-purple-400 underline hover:text-purple-300"
                     >
-                      Creator's Bill of Rights
+                      Creator&apos;s Bill of Rights
                     </button>
                   </label>
                 </div>
@@ -175,7 +176,7 @@ export default function SignUpPage() {
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center space-x-3">
                 <Shield className="w-8 h-8 text-purple-400" />
-                <h2 className="text-2xl font-bold text-white">Creator's Bill of Rights</h2>
+                <h2 className="text-2xl font-bold text-white">Creator&apos;s Bill of Rights</h2>
               </div>
               <button
                 onClick={() => setShowRightsModal(false)}

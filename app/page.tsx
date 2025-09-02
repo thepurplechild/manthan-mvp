@@ -108,7 +108,7 @@ export default function HomePage() {
           </div>
           <div className="max-w-3xl mx-auto text-center">
             <p className="text-purple-200 text-lg leading-relaxed mb-8">
-              We understand your script is your most valuable asset. That's why we've built 
+              We understand your script is your most valuable asset. That is why we have built 
               Manthan with creator-first principles, complete transparency, and ironclad IP protection.
             </p>
             <div className="grid md:grid-cols-3 gap-8 text-sm">

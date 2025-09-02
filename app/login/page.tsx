@@ -1,3 +1,4 @@
+// app/login/page.tsx - Fixed TypeScript errors
 'use client'
 
 import { useState } from 'react'
@@ -27,8 +28,9 @@ export default function LoginPage() {
 
       if (error) throw error
       router.push('/dashboard')
-    } catch (error: any) {
-      setError(error.message)
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'An error occurred'
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }
@@ -94,7 +96,7 @@ export default function LoginPage() {
 
           <div className="mt-6 text-center">
             <p className="text-purple-200 text-sm">
-              Don't have an account?{' '}
+              Don&apos;t have an account?{' '}
               <Link href="/signup" className="text-purple-400 hover:text-purple-300 underline">
                 Sign up here
               </Link>
