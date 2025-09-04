@@ -3,6 +3,7 @@ import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
+import React from 'react'
 import { ArrowLeft, FileText, Download, Clock, CheckCircle, Sparkles, Eye, Upload } from 'lucide-react'
 
 // Local type definitions
@@ -107,7 +108,7 @@ export default async function ProjectDetailPage(props: ProjectDetailProps) {
     }
   }
 
-  const getStatusIcon = (status: string): JSX.Element => {
+  const getStatusIcon = (status: string): React.JSX.Element => {
     switch (status) {
       case 'draft': return <FileText className="w-4 h-4" />
       case 'submitted': return <Upload className="w-4 h-4" />
