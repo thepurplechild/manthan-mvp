@@ -1,4 +1,4 @@
-/ app/projects/[id]/page.tsx - Complete TypeScript fix
+// app projects/[id]/page.tsx - Complete TypeScript fix
 import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import { redirect, notFound } from 'next/navigation'
