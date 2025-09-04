@@ -1,4 +1,4 @@
-// app/projects/[id]/page.tsx - Project Detail Page
+// app/projects/[id]/page.tsx - Fixed apostrophes
 import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import { redirect, notFound } from 'next/navigation'
@@ -224,12 +224,12 @@ export default async function ProjectDetailPage({ params }: ProjectDetailProps) 
                   </div>
                   <div>
                     <h2 className="text-2xl font-bold text-white">AI Processing in Progress</h2>
-                    <p className="text-purple-200">We're analyzing your script and creating pitch materials</p>
+                    <p className="text-purple-200">We&apos;re analyzing your script and creating pitch materials</p>
                   </div>
                 </div>
                 
                 <div className="bg-purple-900/30 rounded-lg p-4 border border-purple-500/30">
-                  <h3 className="text-purple-200 font-semibold mb-2">What's happening:</h3>
+                  <h3 className="text-purple-200 font-semibold mb-2">What&apos;s happening:</h3>
                   <ul className="text-purple-300 text-sm space-y-1">
                     <li>• Analyzing story structure and themes</li>
                     <li>• Extracting character profiles and relationships</li>
@@ -302,10 +302,10 @@ export default async function ProjectDetailPage({ params }: ProjectDetailProps) 
                   <p className="text-purple-200">Your pitch materials are ready for expert review. Our team will reach out soon.</p>
                 )}
                 {project.status === 'in_review' && (
-                  <p className="text-purple-200">Expert review in progress. We'll refine your materials and identify target buyers.</p>
+                  <p className="text-purple-200">Expert review in progress. We&apos;ll refine your materials and identify target buyers.</p>
                 )}
                 {project.status === 'active' && (
-                  <p className="text-purple-200">Your project is live! We're actively pitching to relevant buyers and will keep you updated on progress.</p>
+                  <p className="text-purple-200">Your project is live! We&apos;re actively pitching to relevant buyers and will keep you updated on progress.</p>
                 )}
               </div>
             </div>

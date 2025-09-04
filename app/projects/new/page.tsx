@@ -1,4 +1,4 @@
-// app/projects/new/page.tsx - Project Creation Page
+// app/projects/new/page.tsx - Fixed apostrophes
 'use client'
 
 import { useState } from 'react'
@@ -170,7 +170,7 @@ export default function NewProjectPage() {
             <div className="text-center mb-8">
               <h1 className="text-4xl font-bold text-white mb-4">Create Your Project</h1>
               <p className="text-purple-200 text-lg">
-                Tell us about your story and we'll help you create a professional pitch
+                Tell us about your story and we&apos;ll help you create a professional pitch
               </p>
             </div>
 
@@ -200,7 +200,7 @@ export default function NewProjectPage() {
                     onChange={(e) => setLogline(e.target.value)}
                     rows={3}
                     className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/20 text-white placeholder-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    placeholder="A compelling one-sentence summary of your story (e.g., 'A young entrepreneur must choose between love and ambition when her startup threatens her relationship')"
+                    placeholder="A compelling one-sentence summary of your story (e.g., &apos;A young entrepreneur must choose between love and ambition when her startup threatens her relationship&apos;)"
                   />
                 </div>
 
