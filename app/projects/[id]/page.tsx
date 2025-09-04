@@ -1,9 +1,52 @@
-// app/projects/[id]/page.tsx - Fixed for Next.js 15 async params
+/ app/projects/[id]/page.tsx - Complete TypeScript fix
 import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, FileText, Download, Clock, CheckCircle, Sparkles, Eye, Upload } from 'lucide-react'
+
+// Local type definitions
+interface Profile {
+  id: string
+  full_name: string | null
+  role: string
+  created_at: string
+}
+
+interface ScriptUpload {
+  id: string
+  project_id: string
+  file_path: string
+  file_name: string | null
+  file_size: number | null
+  uploaded_at: string
+}
+
+interface GeneratedAsset {
+  id: string
+  project_id: string
+  asset_type: string
+  asset_url: string | null
+  version: number
+  created_at: string
+}
+
+interface ProjectWithRelations {
+  id: string
+  owner_id: string
+  title: string
+  status: string
+  logline: string | null
+  synopsis: string | null
+  genre: string | null
+  character_breakdowns: unknown | null
+  budget_range: string | null
+  target_platforms: string | null
+  created_at: string
+  profiles?: Profile | null
+  script_uploads?: ScriptUpload[] | null
+  generated_assets?: GeneratedAsset[] | null
+}
 
 interface ProjectDetailProps {
   params: Promise<{
@@ -39,6 +82,8 @@ export default async function ProjectDetailPage(props: ProjectDetailProps) {
     notFound()
   }
 
+  const typedProject = project as ProjectWithRelations
+
   // Check if user owns this project or is founder
   const { data: userProfile } = await supabase
     .from('profiles')
@@ -46,13 +91,13 @@ export default async function ProjectDetailPage(props: ProjectDetailProps) {
     .eq('id', session.user.id)
     .single()
 
-  const canView = project.owner_id === session.user.id || userProfile?.role === 'founder'
+  const canView = typedProject.owner_id === session.user.id || userProfile?.role === 'founder'
   
   if (!canView) {
     redirect('/dashboard')
   }
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string): string => {
     switch (status) {
       case 'draft': return 'bg-gray-500/20 text-gray-400 border-gray-500/30'
       case 'submitted': return 'bg-blue-500/20 text-blue-400 border-blue-500/30'
@@ -62,7 +107,7 @@ export default async function ProjectDetailPage(props: ProjectDetailProps) {
     }
   }
 
-  const getStatusIcon = (status: string) => {
+  const getStatusIcon = (status: string): JSX.Element => {
     switch (status) {
       case 'draft': return <FileText className="w-4 h-4" />
       case 'submitted': return <Upload className="w-4 h-4" />
@@ -89,7 +134,7 @@ export default async function ProjectDetailPage(props: ProjectDetailProps) {
             </div>
           </div>
           
-          {userProfile?.role === 'founder' && project.owner_id !== session.user.id && (
+          {userProfile?.role === 'founder' && typedProject.owner_id !== session.user.id && (
             <div className="bg-purple-600/20 px-4 py-2 rounded-full border border-purple-500/30">
               <span className="text-purple-200 text-sm font-semibold">Founder View</span>
             </div>
@@ -102,20 +147,20 @@ export default async function ProjectDetailPage(props: ProjectDetailProps) {
         <div className="mb-12">
           <div className="flex items-start justify-between mb-6">
             <div>
-              <h1 className="text-4xl font-bold text-white mb-4">{project.title}</h1>
-              {project.logline && (
-                <p className="text-xl text-purple-200 mb-4 leading-relaxed">{project.logline}</p>
+              <h1 className="text-4xl font-bold text-white mb-4">{typedProject.title}</h1>
+              {typedProject.logline && (
+                <p className="text-xl text-purple-200 mb-4 leading-relaxed">{typedProject.logline}</p>
               )}
               <div className="flex items-center space-x-4 text-sm text-purple-300">
-                <span>Created {new Date(project.created_at).toLocaleDateString()}</span>
-                {project.genre && <span>• {project.genre}</span>}
-                {project.budget_range && <span>• {project.budget_range}</span>}
+                <span>Created {new Date(typedProject.created_at).toLocaleDateString()}</span>
+                {typedProject.genre && <span>• {typedProject.genre}</span>}
+                {typedProject.budget_range && <span>• {typedProject.budget_range}</span>}
               </div>
             </div>
             <div className="flex items-center space-x-3">
-              <span className={`px-4 py-2 rounded-full text-sm font-medium border flex items-center gap-2 ${getStatusColor(project.status)}`}>
-                {getStatusIcon(project.status)}
-                {project.status.replace('_', ' ').toUpperCase()}
+              <span className={`px-4 py-2 rounded-full text-sm font-medium border flex items-center gap-2 ${getStatusColor(typedProject.status)}`}>
+                {getStatusIcon(typedProject.status)}
+                {typedProject.status.replace('_', ' ').toUpperCase()}
               </span>
             </div>
           </div>
@@ -125,28 +170,28 @@ export default async function ProjectDetailPage(props: ProjectDetailProps) {
             <h3 className="text-white font-semibold mb-4">Project Progress</h3>
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${project.script_uploads?.length > 0 ? 'bg-green-600' : 'bg-gray-600'}`}>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${typedProject.script_uploads && typedProject.script_uploads.length > 0 ? 'bg-green-600' : 'bg-gray-600'}`}>
                   <CheckCircle className="w-5 h-5 text-white" />
                 </div>
                 <span className="text-purple-200 font-medium">Script Uploaded</span>
               </div>
               
               <div className="flex items-center space-x-2">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${project.generated_assets?.length > 0 ? 'bg-green-600' : 'bg-gray-600'}`}>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${typedProject.generated_assets && typedProject.generated_assets.length > 0 ? 'bg-green-600' : 'bg-gray-600'}`}>
                   <Sparkles className="w-5 h-5 text-white" />
                 </div>
                 <span className="text-purple-200 font-medium">AI Processing</span>
               </div>
               
               <div className="flex items-center space-x-2">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${project.status === 'in_review' || project.status === 'active' ? 'bg-green-600' : 'bg-gray-600'}`}>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${typedProject.status === 'in_review' || typedProject.status === 'active' ? 'bg-green-600' : 'bg-gray-600'}`}>
                   <Eye className="w-5 h-5 text-white" />
                 </div>
                 <span className="text-purple-200 font-medium">Expert Review</span>
               </div>
               
               <div className="flex items-center space-x-2">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${project.status === 'active' ? 'bg-green-600' : 'bg-gray-600'}`}>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${typedProject.status === 'active' ? 'bg-green-600' : 'bg-gray-600'}`}>
                   <CheckCircle className="w-5 h-5 text-white" />
                 </div>
                 <span className="text-purple-200 font-medium">Live Pitching</span>
@@ -162,37 +207,37 @@ export default async function ProjectDetailPage(props: ProjectDetailProps) {
             <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20">
               <h2 className="text-2xl font-bold text-white mb-6">Project Details</h2>
               
-              {project.synopsis && (
+              {typedProject.synopsis && (
                 <div className="mb-6">
                   <h3 className="text-lg font-semibold text-purple-200 mb-3">Synopsis</h3>
-                  <p className="text-purple-100 leading-relaxed">{project.synopsis}</p>
+                  <p className="text-purple-100 leading-relaxed">{typedProject.synopsis}</p>
                 </div>
               )}
 
               <div className="grid md:grid-cols-2 gap-6">
-                {project.target_platforms && (
+                {typedProject.target_platforms && (
                   <div>
                     <h3 className="text-lg font-semibold text-purple-200 mb-2">Target Platform</h3>
-                    <p className="text-purple-100">{project.target_platforms}</p>
+                    <p className="text-purple-100">{typedProject.target_platforms}</p>
                   </div>
                 )}
                 
-                {project.budget_range && (
+                {typedProject.budget_range && (
                   <div>
                     <h3 className="text-lg font-semibold text-purple-200 mb-2">Budget Range</h3>
-                    <p className="text-purple-100">{project.budget_range}</p>
+                    <p className="text-purple-100">{typedProject.budget_range}</p>
                   </div>
                 )}
               </div>
             </div>
 
             {/* Generated Assets */}
-            {project.generated_assets && project.generated_assets.length > 0 && (
+            {typedProject.generated_assets && typedProject.generated_assets.length > 0 && (
               <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20">
                 <h2 className="text-2xl font-bold text-white mb-6">Generated Pitch Materials</h2>
                 
                 <div className="grid md:grid-cols-2 gap-4">
-                  {project.generated_assets.map((asset) => (
+                  {typedProject.generated_assets.map((asset: GeneratedAsset) => (
                     <div key={asset.id} className="bg-white/5 rounded-lg p-6 border border-white/10">
                       <div className="flex items-center justify-between mb-4">
                         <div>
@@ -217,7 +262,7 @@ export default async function ProjectDetailPage(props: ProjectDetailProps) {
             )}
 
             {/* AI Processing Status */}
-            {project.script_uploads?.length > 0 && (!project.generated_assets || project.generated_assets.length === 0) && (
+            {typedProject.script_uploads && typedProject.script_uploads.length > 0 && (!typedProject.generated_assets || typedProject.generated_assets.length === 0) && (
               <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20">
                 <div className="flex items-center space-x-4 mb-4">
                   <div className="animate-spin">
@@ -246,10 +291,10 @@ export default async function ProjectDetailPage(props: ProjectDetailProps) {
           {/* Sidebar */}
           <div className="space-y-6">
             {/* Uploaded Script */}
-            {project.script_uploads && project.script_uploads.length > 0 && (
+            {typedProject.script_uploads && typedProject.script_uploads.length > 0 && (
               <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
                 <h3 className="text-xl font-bold text-white mb-4">Uploaded Script</h3>
-                {project.script_uploads.map((upload) => (
+                {typedProject.script_uploads.map((upload: ScriptUpload) => (
                   <div key={upload.id} className="flex items-center justify-between p-4 bg-white/5 rounded-lg border border-white/10">
                     <div className="flex items-center space-x-3">
                       <FileText className="w-8 h-8 text-purple-400" />
@@ -272,18 +317,18 @@ export default async function ProjectDetailPage(props: ProjectDetailProps) {
             )}
 
             {/* Project Owner Info (for founders) */}
-            {userProfile?.role === 'founder' && project.owner_id !== session.user.id && (
+            {userProfile?.role === 'founder' && typedProject.owner_id !== session.user.id && (
               <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
                 <h3 className="text-xl font-bold text-white mb-4">Creator</h3>
                 <div className="flex items-center space-x-3">
                   <div className="w-12 h-12 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 flex items-center justify-center">
                     <span className="text-white font-bold text-lg">
-                      {project.profiles?.full_name?.charAt(0) || 'U'}
+                      {typedProject.profiles?.full_name?.charAt(0) || 'U'}
                     </span>
                   </div>
                   <div>
-                    <p className="text-white font-semibold">{project.profiles?.full_name}</p>
-                    <p className="text-purple-300 text-sm capitalize">{project.profiles?.role}</p>
+                    <p className="text-white font-semibold">{typedProject.profiles?.full_name}</p>
+                    <p className="text-purple-300 text-sm capitalize">{typedProject.profiles?.role}</p>
                   </div>
                 </div>
               </div>
@@ -293,19 +338,19 @@ export default async function ProjectDetailPage(props: ProjectDetailProps) {
             <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
               <h3 className="text-xl font-bold text-white mb-4">Next Steps</h3>
               <div className="space-y-3 text-sm">
-                {project.status === 'draft' && project.script_uploads?.length === 0 && (
+                {typedProject.status === 'draft' && (!typedProject.script_uploads || typedProject.script_uploads.length === 0) && (
                   <p className="text-purple-200">Upload your script to begin AI processing</p>
                 )}
-                {project.script_uploads?.length > 0 && (!project.generated_assets || project.generated_assets.length === 0) && (
+                {typedProject.script_uploads && typedProject.script_uploads.length > 0 && (!typedProject.generated_assets || typedProject.generated_assets.length === 0) && (
                   <p className="text-purple-200">AI is processing your script. This usually takes 5-10 minutes.</p>
                 )}
-                {project.generated_assets?.length > 0 && project.status === 'draft' && (
+                {typedProject.generated_assets && typedProject.generated_assets.length > 0 && typedProject.status === 'draft' && (
                   <p className="text-purple-200">Your pitch materials are ready for expert review. Our team will reach out soon.</p>
                 )}
-                {project.status === 'in_review' && (
+                {typedProject.status === 'in_review' && (
                   <p className="text-purple-200">Expert review in progress. We&apos;ll refine your materials and identify target buyers.</p>
                 )}
-                {project.status === 'active' && (
+                {typedProject.status === 'active' && (
                   <p className="text-purple-200">Your project is live! We&apos;re actively pitching to relevant buyers and will keep you updated on progress.</p>
                 )}
               </div>
