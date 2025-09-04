@@ -1,4 +1,4 @@
-// app/projects/[id]/page.tsx - Fixed apostrophes
+// app/projects/[id]/page.tsx - Fixed for Next.js 15 async params
 import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import { redirect, notFound } from 'next/navigation'
@@ -6,12 +6,13 @@ import Link from 'next/link'
 import { ArrowLeft, FileText, Download, Clock, CheckCircle, Sparkles, Eye, Upload } from 'lucide-react'
 
 interface ProjectDetailProps {
-  params: {
+  params: Promise<{
     id: string
-  }
+  }>
 }
 
-export default async function ProjectDetailPage({ params }: ProjectDetailProps) {
+export default async function ProjectDetailPage(props: ProjectDetailProps) {
+  const { id } = await props.params
   const supabase = createServerComponentClient({ cookies })
 
   const {
