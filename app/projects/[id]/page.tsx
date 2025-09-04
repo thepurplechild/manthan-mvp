@@ -31,7 +31,7 @@ export default async function ProjectDetailPage({ params }: ProjectDetailProps) 
       script_uploads(*),
       generated_assets(*)
     `)
-    .eq('id', params.id)
+    .eq('id', id)
     .single()
 
   if (error || !project) {
