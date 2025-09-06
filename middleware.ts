@@ -4,21 +4,32 @@ import type { NextRequest } from 'next/server'
 import { createServerClient } from "@supabase/ssr";
 
 export async function middleware(request: NextRequest) {
+  // Check if Supabase environment variables are set
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseAnonKey || 
+      supabaseUrl.includes('your_supabase') || 
+      supabaseAnonKey.includes('your_supabase')) {
+    // Skip middleware if env vars are not properly set
+    return NextResponse.next();
+  }
+
   // Update the session first
   const response = await updateSession(request);
   
   // Create a Supabase client to check auth and role
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_OR_ANON_KEY!,
+    supabaseUrl,
+    supabaseAnonKey,
     {
       cookies: {
         getAll() {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value)
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options)
           );
         },
       },
