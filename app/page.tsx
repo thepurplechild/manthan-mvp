@@ -15,10 +15,10 @@ export default function HomePage() {
           </span>
         </div>
         <div className="space-x-6">
-          <Link href="/login" className="text-purple-200 hover:text-white transition-colors">
+          <Link href="/auth/login" className="text-purple-200 hover:text-white transition-colors">
             Login
           </Link>
-          <Link href="/signup" className="bg-purple-600 hover:bg-purple-700 px-6 py-2 rounded-full text-white transition-colors">
+          <Link href="/auth/sign-up" className="bg-purple-600 hover:bg-purple-700 px-6 py-2 rounded-full text-white transition-colors">
             Get Started
           </Link>
         </div>
@@ -40,7 +40,7 @@ export default function HomePage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link 
-              href="/signup"
+              href="/auth/sign-up"
               className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 px-8 py-4 rounded-full text-white font-semibold flex items-center justify-center gap-2 transition-all transform hover:scale-105"
             >
               Start Your Journey <ArrowRight className="w-5 h-5" />
@@ -140,7 +140,7 @@ export default function HomePage() {
             how stories get discovered in India.
           </p>
           <Link 
-            href="/signup"
+            href="/auth/sign-up"
             className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 px-12 py-4 rounded-full text-white text-lg font-semibold inline-flex items-center gap-3 transition-all transform hover:scale-105"
           >
             Join the Founding Cohort <ArrowRight className="w-6 h-6" />
