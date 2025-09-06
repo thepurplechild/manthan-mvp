@@ -1,26 +1,22 @@
-// app/dashboard/page.tsx - Creator Dashboard
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
-import { redirect } from 'next/navigation'
+import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
 import Link from 'next/link'
 import { Plus, FileText, Clock, CheckCircle, BarChart3, Upload, Eye, Download } from 'lucide-react'
 
 export default async function Dashboard() {
-  const supabase = createServerComponentClient({ cookies })
+  const supabase = await createClient();
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-  if (!session) {
-    redirect('/login')
+  if (authError || !user) {
+    redirect('/auth/login');
   }
 
   // Get user profile
   const { data: profile } = await supabase
     .from('profiles')
     .select('*')
-    .eq('id', session.user.id)
+    .eq('id', user.id)
     .single()
 
   // Get user's projects
@@ -31,7 +27,7 @@ export default async function Dashboard() {
       script_uploads (*),
       generated_assets (*)
     `)
-    .eq('owner_id', session.user.id)
+    .eq('owner_id', user.id)
     .order('created_at', { ascending: false })
 
   const getStatusColor = (status: string) => {
