@@ -19,7 +19,6 @@ import {
   TrendingUp, 
   Clock,
   CheckCircle,
-  AlertCircle,
   Eye,
   Settings
 } from "lucide-react";
@@ -320,7 +319,7 @@ export default async function FounderDashboard() {
                       <p className="text-purple-100 mb-3">{mandate.mandate_description}</p>
                       {mandate.tags && mandate.tags.length > 0 && (
                         <div className="flex flex-wrap gap-2">
-                          {mandate.tags.map((tag, index) => (
+                          {mandate.tags.map((tag: string, index: number) => (
                             <Badge key={index} variant="secondary" className="text-xs">
                               {tag}
                             </Badge>
