@@ -34,7 +34,11 @@ export function SignUpForm({
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("Signup form submitted with:", { email, fullName, acceptedRights });
+    
     const supabase = createClient();
+    console.log("Supabase client created:", !!supabase);
+    
     setIsLoading(true);
     setError(null);
 
@@ -51,7 +55,8 @@ export function SignUpForm({
     }
 
     try {
-      const { error } = await supabase.auth.signUp({
+      console.log("Attempting to sign up...");
+      const { error, data } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -61,9 +66,15 @@ export function SignUpForm({
           }
         },
       });
+      
+      console.log("Sign up result:", { error, user: data?.user?.id });
+      
       if (error) throw error;
+      
+      console.log("Sign up successful, redirecting to dashboard");
       router.push("/dashboard");
     } catch (error: unknown) {
+      console.error("Sign up error:", error);
       setError(error instanceof Error ? error.message : "An error occurred");
     } finally {
       setIsLoading(false);
