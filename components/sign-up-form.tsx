@@ -2,8 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";\nimport { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -242,7 +241,7 @@ export function SignUpForm({
             )}
 
             {/* Signup Button */}
-            <Button 
+            <button 
               type="submit" 
               disabled={isLoading || !acceptedRights}
               className="w-full h-12 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold rounded-xl shadow-lg shadow-purple-500/25 backdrop-blur-sm border border-white/20 transition-all duration-300 hover:scale-105 hover:shadow-xl hover:shadow-purple-500/40 disabled:opacity-50 disabled:hover:scale-100"
@@ -255,7 +254,7 @@ export function SignUpForm({
               ) : (
                 "Create Account"
               )}
-            </Button>
+            </button>
           </form>
 
           {/* Login link */}
