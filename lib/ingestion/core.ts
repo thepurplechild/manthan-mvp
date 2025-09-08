@@ -320,106 +320,25 @@ function validateFile(
 }
 
 /**
- * Extract text content from file (placeholder - would be implemented with actual parsers)
+ * Extract text content from file using appropriate parser
  */
 async function extractTextContent(
   filename: string,
   fileType: SupportedFileType,
   fileBuffer: Buffer,
   progressCallback?: IngestionProgressCallback
-): Promise<{ content: string; warnings: IngestionWarning[] }> {
-  const warnings: IngestionWarning[] = [];
+): Promise<{ content: string; warnings: IngestionWarning[]; structuredContent?: any; enhancedMetadata?: any }> {
+  const { parseFile } = await import('./parsers');
   
   try {
-    progressCallback?.({
-      currentStep: 'Extracting text content',
-      progress: 10,
-      details: `Processing ${fileType} file`
-    });
+    const parseResult = await parseFile(filename, fileBuffer, fileType, progressCallback);
     
-    // Simulate processing delay
-    await new Promise(resolve => setTimeout(resolve, 100));
-    
-    let content = '';
-    
-    switch (fileType) {
-      case '.txt':
-        content = fileBuffer.toString('utf-8');
-        progressCallback?.({ currentStep: 'Text extraction complete', progress: 100 });
-        break;
-        
-      case '.pdf':
-        // In a real implementation, you would use a PDF parser like pdf-parse
-        content = `[PDF Content Extracted from ${filename}]\n\nThis is a placeholder for PDF content extraction. In a real implementation, this would use a library like pdf-parse or pdf2pic to extract text from PDF files.\n\nThe content would include all text, maintaining structure and formatting where possible.`;
-        warnings.push(createWarning(
-          'partial_extraction',
-          'PDF text extraction is not fully implemented in this demo',
-          'low',
-          ['This is a demo implementation - real PDF parsing would be added']
-        ));
-        progressCallback?.({ currentStep: 'PDF extraction complete', progress: 100 });
-        break;
-        
-      case '.fdx':
-        // Final Draft XML format
-        content = `[Final Draft Script from ${filename}]\n\nFADE IN:\n\nThis is a placeholder for Final Draft (.fdx) script extraction. In a real implementation, this would parse the XML structure to extract:\n\n- Scene headings\n- Action lines\n- Character names\n- Dialogue\n- Transitions\n- Notes and formatting\n\nThe extracted content would maintain proper screenplay formatting.`;
-        warnings.push(createWarning(
-          'partial_extraction',
-          'Final Draft parsing is not fully implemented in this demo',
-          'low'
-        ));
-        progressCallback?.({ currentStep: 'Script extraction complete', progress: 100 });
-        break;
-        
-      case '.celtx':
-        // Celtx format
-        content = `[Celtx Script from ${filename}]\n\nThis is a placeholder for Celtx script extraction. The real implementation would parse the Celtx file format and extract screenplay content with proper formatting.`;
-        warnings.push(createWarning(
-          'partial_extraction',
-          'Celtx parsing is not fully implemented in this demo',
-          'low'
-        ));
-        progressCallback?.({ currentStep: 'Script extraction complete', progress: 100 });
-        break;
-        
-      case '.docx':
-        // Microsoft Word document
-        content = `[Word Document from ${filename}]\n\nThis is a placeholder for Microsoft Word document extraction. In a real implementation, this would use a library like mammoth.js or docx-parser to extract:\n\n- Text content\n- Headings and structure\n- Tables\n- Lists\n- Basic formatting\n\nThe content would preserve document structure and hierarchy.`;
-        warnings.push(createWarning(
-          'partial_extraction',
-          'Word document parsing is not fully implemented in this demo',
-          'low'
-        ));
-        progressCallback?.({ currentStep: 'Document extraction complete', progress: 100 });
-        break;
-        
-      case '.pptx':
-      case '.ppt':
-        // PowerPoint presentation
-        content = `[PowerPoint Presentation from ${filename}]\n\nSlide 1: Title Slide\nThis is a placeholder for PowerPoint extraction.\n\nSlide 2: Content\nIn a real implementation, this would extract:\n- Slide titles\n- Text content from slides\n- Speaker notes\n- Slide structure\n\nEach slide would be clearly separated and labeled.`;
-        warnings.push(createWarning(
-          'partial_extraction',
-          'PowerPoint parsing is not fully implemented in this demo',
-          'low'
-        ));
-        progressCallback?.({ currentStep: 'Presentation extraction complete', progress: 100 });
-        break;
-        
-      default:
-        throw new Error(`Unsupported file type: ${fileType}`);
-    }
-    
-    // Check for empty content
-    if (!content || content.trim().length === 0) {
-      warnings.push(createWarning(
-        'empty_content',
-        `No content could be extracted from "${filename}"`,
-        'high',
-        ['Check if the file contains readable text', 'Ensure the file is not corrupted']
-      ));
-    }
-    
-    return { content, warnings };
+    return {
+      content: parseResult.textContent,
+      warnings: parseResult.warnings,
+      structuredContent: parseResult.structuredContent,
+      enhancedMetadata: parseResult.metadata
+    };
     
   } catch (error) {
     throw new Error(`Content extraction failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -543,7 +462,7 @@ export async function ingestFile(
     
     // Step 2: Detect file type
     const detectedFileType = detectFileType(filename, mimeType)!;
-    logger.validation.fileType(filename, detectedFileType, SUPPORTED_FILE_TYPES, options.userContext);
+    logger.validation.fileType(filename, detectedFileType, [...SUPPORTED_FILE_TYPES], options.userContext);
     
     progressCallback?.({
       currentStep: 'Processing file',

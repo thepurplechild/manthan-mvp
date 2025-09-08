@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { ingestFile, getSupportedFileTypes, getMaxFileSize } from '@/lib/ingestion/core'
 import { IngestionResult, IngestionProgress } from '@/lib/ingestion/types'
 
 export default function IngestionTestPage() {
@@ -35,43 +34,62 @@ export default function IngestionTestPage() {
     addLog('Starting ingestion process...')
 
     try {
-      // Convert File to Buffer
-      const arrayBuffer = await selectedFile.arrayBuffer()
-      const buffer = Buffer.from(arrayBuffer)
+      // Create form data for API request
+      const formData = new FormData()
+      formData.append('file', selectedFile)
+      formData.append('priority', 'high')
+      formData.append('userId', 'test-user')
+      formData.append('projectId', 'test-project')
+      formData.append('sessionId', 'test-session')
 
-      addLog(`File loaded into buffer: ${buffer.length} bytes`)
+      addLog(`Sending file to API: ${selectedFile.name} (${Math.round(selectedFile.size / 1024)} KB)`)
 
-      // Process the file
-      const ingestionResult = await ingestFile(
-        selectedFile.name,
-        buffer,
-        selectedFile.type,
-        {
-          priority: 'high',
-          extractMetadata: true,
-          validateContent: true,
-          userContext: {
-            userId: 'test-user',
-            projectId: 'test-project',
-            sessionId: 'test-session'
-          }
-        },
-        (progressInfo: IngestionProgress) => {
-          setProgress(progressInfo)
-          addLog(`Progress: ${progressInfo.progress}% - ${progressInfo.currentStep}`)
-        }
-      )
+      // Call the ingestion API
+      const response = await fetch('/api/ingest', {
+        method: 'POST',
+        body: formData,
+      })
 
-      setResult(ingestionResult)
+      const apiResult = await response.json()
       
-      if (ingestionResult.success) {
+      if (apiResult.success) {
+        setResult(apiResult.result)
         addLog('✅ Ingestion completed successfully!')
       } else {
-        addLog(`❌ Ingestion failed: ${ingestionResult.error?.message}`)
+        // Create a mock failed result for display
+        const failedResult: IngestionResult = {
+          ingestionId: apiResult.ingestionId || 'unknown',
+          content: null,
+          warnings: [],
+          error: apiResult.error || { type: 'unknown_error', message: 'Unknown error', timestamp: new Date(), retryable: false },
+          success: false,
+          processingTime: 0,
+          startedAt: new Date(),
+          completedAt: new Date()
+        }
+        setResult(failedResult)
+        addLog(`❌ Ingestion failed: ${apiResult.error?.message || 'Unknown error'}`)
       }
 
     } catch (error) {
-      addLog(`❌ Error: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      addLog(`❌ API Error: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      // Create a mock error result
+      const errorResult: IngestionResult = {
+        ingestionId: 'error',
+        content: null,
+        warnings: [],
+        error: { 
+          type: 'network_error', 
+          message: error instanceof Error ? error.message : 'Network error occurred',
+          timestamp: new Date(),
+          retryable: true
+        },
+        success: false,
+        processingTime: 0,
+        startedAt: new Date(),
+        completedAt: new Date()
+      }
+      setResult(errorResult)
     } finally {
       setIsProcessing(false)
       setProgress(null)
@@ -88,8 +106,9 @@ export default function IngestionTestPage() {
     addLog(`Test file created: ${filename}`)
   }
 
-  const supportedTypes = getSupportedFileTypes()
-  const maxSize = getMaxFileSize()
+  // Define supported types and max size locally (should match server-side values)
+  const supportedTypes = ['.txt', '.pdf', '.fdx', '.celtx', '.docx', '.pptx', '.ppt']
+  const maxSize = 10 * 1024 * 1024 // 10MB
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-950 via-purple-950 to-pink-950 p-8">

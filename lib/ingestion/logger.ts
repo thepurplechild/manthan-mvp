@@ -146,7 +146,7 @@ class IngestionLogger {
     
     return () => {
       const duration = Date.now() - start;
-      this.info(`Timer finished: ${label}`, context, undefined, duration);
+      this.info(`Timer finished: ${label} (${duration}ms)`, context);
     };
   }
   
@@ -203,11 +203,11 @@ export const logger = {
     },
     
     completed: (filename: string, duration: number, context?: LogContext) => {
-      defaultLogger.info(`File processing completed: ${filename}`, {
+      defaultLogger.info(`File processing completed: ${filename} (${duration}ms)`, {
         ...context,
         filename,
         step: 'file_processing_complete'
-      }, undefined, duration);
+      });
     },
     
     failed: (filename: string, error: Error, context?: LogContext) => {
@@ -310,12 +310,12 @@ export const logger = {
     },
     
     ingestionCompleted: (ingestionId: string, duration: number, success: boolean, context?: LogContext) => {
-      defaultLogger.info(`Ingestion session completed (${success ? 'success' : 'failed'})`, {
+      defaultLogger.info(`Ingestion session completed (${success ? 'success' : 'failed'}) in ${duration}ms`, {
         ...context,
         ingestionId,
         success,
         step: 'ingestion_complete'
-      }, undefined, duration);
+      });
     },
     
     performanceMetric: (metric: string, value: number, unit: string, context?: LogContext) => {

@@ -154,10 +154,10 @@ The core AI functionality uses a 6-step prompt chain with Claude 3 Opus:
 
 ## Environment Variables Required
 ```
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
-ANTHROPIC_API_KEY=
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url_here
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key_here
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key_here
+ANTHROPIC_API_KEY=your_anthropic_api_key_here
 ```
 
 ## Immediate Implementation Priorities
