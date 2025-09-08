@@ -30,6 +30,7 @@ export function SignUpForm({
   const [acceptedRights, setAcceptedRights] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [signUpSuccess, setSignUpSuccess] = useState(false);
   const router = useRouter();
 
   const handleSignUp = async (e: React.FormEvent) => {
@@ -67,12 +68,19 @@ export function SignUpForm({
         },
       });
       
-      console.log("Sign up result:", { error, user: data?.user?.id });
+      console.log("Sign up result:", { error, user: data?.user?.id, emailConfirmed: data?.user?.email_confirmed_at });
       
       if (error) throw error;
       
-      console.log("Sign up successful, redirecting to dashboard");
-      router.push("/dashboard");
+      if (data?.user && !data.user.email_confirmed_at) {
+        // User created but needs email confirmation
+        console.log("Sign up successful, email confirmation required");
+        setSignUpSuccess(true);
+      } else {
+        // User created and confirmed (unlikely but possible)
+        console.log("Sign up successful, redirecting to dashboard");
+        router.push("/dashboard");
+      }
     } catch (error: unknown) {
       console.error("Sign up error:", error);
       setError(error instanceof Error ? error.message : "An error occurred");
@@ -105,7 +113,40 @@ export function SignUpForm({
             </p>
           </div>
 
+          {/* Success Message */}
+          {signUpSuccess && (
+            <div className="mb-8 p-6 bg-green-500/20 border border-green-500/30 rounded-2xl">
+              <div className="text-center">
+                <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Mail className="w-6 h-6 text-white" />
+                </div>
+                <h3 className="text-xl font-semibold text-white mb-2">Check Your Email!</h3>
+                <p className="text-green-100 mb-4">
+                  We've sent a confirmation link to <span className="font-medium">{email}</span>
+                </p>
+                <p className="text-green-100/80 text-sm mb-4">
+                  Click the link in the email to activate your account, then return here to sign in.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  <Link
+                    href="/auth/login"
+                    className="px-4 py-2 bg-white text-green-600 font-medium rounded-lg hover:bg-gray-100 transition-colors"
+                  >
+                    Go to Sign In
+                  </Link>
+                  <button
+                    onClick={() => setSignUpSuccess(false)}
+                    className="px-4 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors"
+                  >
+                    Try Again
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Form */}
+          {!signUpSuccess && (
           <form onSubmit={handleSignUp} className="space-y-6">
             {/* Full Name Field */}
             <div className="space-y-2">
@@ -257,6 +298,7 @@ export function SignUpForm({
               )}
             </button>
           </form>
+          )}
 
           {/* Login link */}
           <div className="text-center mt-8">

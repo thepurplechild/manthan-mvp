@@ -44,7 +44,16 @@ export function LoginForm({
       router.push("/dashboard");
     } catch (error: unknown) {
       console.error("Sign in error:", error);
-      setError(error instanceof Error ? error.message : "An error occurred");
+      const errorMessage = error instanceof Error ? error.message : "An error occurred";
+      
+      // Provide better guidance for common issues
+      if (errorMessage.includes("Email not confirmed") || errorMessage.includes("email_not_confirmed")) {
+        setError("Please check your email and click the confirmation link before signing in. Check your spam folder if you don't see the email.");
+      } else if (errorMessage.includes("Invalid login credentials")) {
+        setError("Invalid email or password. If you just signed up, make sure you've confirmed your email first.");
+      } else {
+        setError(errorMessage);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -71,6 +80,13 @@ export function LoginForm({
             <h1 className="text-3xl font-bold text-white mb-3">Welcome Back</h1>
             <p className="text-white/60 text-lg">
               Sign in to continue your creative journey
+            </p>
+          </div>
+
+          {/* Info Banner for New Users */}
+          <div className="mb-6 p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl">
+            <p className="text-blue-100 text-sm text-center">
+              <span className="font-medium">New to Manthan?</span> After signing up, check your email for a confirmation link before signing in.
             </p>
           </div>
 
