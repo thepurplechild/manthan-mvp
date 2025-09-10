@@ -27,7 +27,6 @@ export const GENRES = [
   'Gujarati Cinema',
   'Odia Cinema',
   'Assamese Cinema'
-  'Assamese Cinema'
 ] as const;
 
 export const PLATFORMS = [
@@ -42,7 +41,6 @@ export const PLATFORMS = [
   'Eros Now',
   'YouTube India',
   'Instagram Reels',
-  'Regional OTTs'
   'Regional OTTs'
 ] as const;
 
@@ -59,7 +57,6 @@ export const LANGUAGES = [
   'Gujarati',
   'Odia',
   'Assamese',
-  'Multi-language/Dubbed'
   'Multi-language/Dubbed'
 ] as const;
 
