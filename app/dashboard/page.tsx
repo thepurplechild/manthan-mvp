@@ -63,6 +63,13 @@ export default async function Dashboard() {
   }
   const topGenres = Object.entries(genreCounts).sort((a, b) => b[1] - a[1]).slice(0, 5)
 
+  // Pull 2-3 insights from indian_market_trends
+  const { data: trends } = await supabase
+    .from('indian_market_trends')
+    .select('region,trending_genres,seasonal_prefs')
+    .order('updated_at', { ascending: false })
+    .limit(3)
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'draft': return 'bg-gray-500/20 text-gray-400 border-gray-500/30'
@@ -204,6 +211,15 @@ export default async function Dashboard() {
             ) : (
               <p className="text-purple-200">Add genres to your projects to see trends.</p>
             )}
+            {/* Global trends */}
+            <div className="mt-4 border-t border-white/10 pt-3">
+              <p className="text-white/80 font-semibold mb-2">Regional Insights</p>
+              <ul className="space-y-1 text-purple-200 text-sm">
+                {(trends || []).map((t: any, idx: number) => (
+                  <li key={idx}>• {t.region}: {(t.trending_genres || []).slice(0,3).join(', ')}</li>
+                ))}
+              </ul>
+            </div>
           </div>
           <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
             <div className="flex items-center justify-between mb-4">

@@ -240,4 +240,80 @@ FROM (
 ) s
 GROUP BY region;
 
+-- 9) Additional insights: platform patterns by region
+CREATE OR REPLACE VIEW public.v_platform_patterns_by_region AS
+SELECT region,
+       jsonb_agg(DISTINCT (p->>'platform')) FILTER (WHERE p ? 'platform') AS platforms,
+       count(*) AS pattern_count
+FROM (
+  SELECT region, jsonb_array_elements(platform_patterns) AS p
+  FROM public.indian_market_trends
+) t
+GROUP BY region;
+
+-- 10) Seasonal opportunities (materialized for speed)
+DROP MATERIALIZED VIEW IF EXISTS public.mv_seasonal_opportunities;
+CREATE MATERIALIZED VIEW public.mv_seasonal_opportunities AS
+SELECT region,
+       (pref->>'season') AS season,
+       jsonb_agg(DISTINCT (pref->>'content')) FILTER (WHERE pref ? 'content') AS contents,
+       count(*) AS occurrences
+FROM (
+  SELECT region, jsonb_array_elements(seasonal_prefs) AS pref
+  FROM public.indian_market_trends
+) x
+GROUP BY region, season
+WITH NO DATA;
+
+-- 11) Creator network aggregates (skills) — expose anonymized counts
+CREATE OR REPLACE FUNCTION public.creator_skills_aggregate()
+RETURNS jsonb
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE result jsonb;
+BEGIN
+  SELECT coalesce(jsonb_object_agg(skill, cnt), '{}'::jsonb) INTO result
+  FROM (
+    SELECT val::text AS skill, count(*) AS cnt
+    FROM (
+      SELECT jsonb_array_elements_text(skills) AS val
+      FROM public.creator_network
+    ) s
+    GROUP BY val
+  ) agg;
+  RETURN result;
+END;$$ LANGUAGE plpgsql;
+
+-- 12) Recommend content RPC (region/language/genre)
+CREATE OR REPLACE FUNCTION public.recommend_content(region text, language text, genre text)
+RETURNS jsonb
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE hints jsonb;
+DECLARE platforms jsonb;
+DECLARE seasons jsonb;
+BEGIN
+  SELECT coalesce(jsonb_agg(suggested_genres)::jsonb, '[]'::jsonb)
+    INTO hints
+  FROM public.v_region_genre_hints WHERE region = recommend_content.region;
+
+  SELECT coalesce(jsonb_agg(platforms)::jsonb, '[]'::jsonb)
+    INTO platforms
+  FROM public.v_platform_patterns_by_region WHERE region = recommend_content.region;
+
+  SELECT coalesce(jsonb_agg(jsonb_build_object('season', season, 'contents', contents))::jsonb, '[]'::jsonb)
+    INTO seasons
+  FROM public.mv_seasonal_opportunities WHERE region = recommend_content.region;
+
+  RETURN jsonb_build_object(
+    'region', region,
+    'input', jsonb_build_object('language', language, 'genre', genre),
+    'genres', coalesce(hints, '[]'::jsonb),
+    'platforms', coalesce(platforms, '[]'::jsonb),
+    'seasonal', coalesce(seasons, '[]'::jsonb)
+  );
+END;$$ LANGUAGE plpgsql;
+
 -- END
