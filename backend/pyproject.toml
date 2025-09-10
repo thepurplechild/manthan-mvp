@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "manthan-backend"
+version = "0.1.0"
+description = "FastAPI backend for the Manthan MVP"
+authors = ["Ambar Walia <ambar@projectmanthan.com>"]
+readme = "README.md"
+packages = [{ include = "app" }]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+fastapi = "^0.115.0"
+uvicorn = { extras = ["standard"], version = "^0.30.0" }
+python-dotenv = "^1.0.1"
+pydantic = "^2.8.2"
+httpx = "^0.28.1"
+supabase = "^2.5.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.3"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
