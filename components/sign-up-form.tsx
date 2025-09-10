@@ -31,6 +31,8 @@ export function SignUpForm({
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [signUpSuccess, setSignUpSuccess] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resendMsg, setResendMsg] = useState<string | null>(null);
   const router = useRouter();
 
   const handleSignUp = async (e: React.FormEvent) => {
@@ -76,9 +78,40 @@ export function SignUpForm({
       }
     } catch (error: unknown) {
       console.error("Sign up error:", error);
-      setError(error instanceof Error ? error.message : "An error occurred");
+      const msg = error instanceof Error ? error.message : "An error occurred";
+      if (msg.toLowerCase().includes('redirect_to is not allowed')) {
+        setError("Redirect URL is not allowed. In Supabase → Auth → URL Configuration, add your domain (e.g., http://localhost:3000) and http://localhost:3000/auth/confirm to Additional Redirect URLs.");
+      } else if (msg.toLowerCase().includes('rate limit')) {
+        setError("Email rate limit reached. Please wait a minute and try again, or check your spam folder.");
+      } else {
+        setError(msg);
+      }
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    setResendMsg(null);
+    if (!email) {
+      setResendMsg('Enter your email above first.');
+      return;
+    }
+    setResending(true);
+    const supabase = createClient();
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email,
+        options: { emailRedirectTo: `${window.location.origin}/auth/confirm?next=/dashboard` },
+      } as any);
+      if (error) throw error;
+      setResendMsg('Verification email sent. Check your inbox and spam folder.');
+    } catch (err: any) {
+      const msg = err?.message || 'Resend failed';
+      setResendMsg(msg);
+    } finally {
+      setResending(false);
     }
   };
 
@@ -128,12 +161,17 @@ export function SignUpForm({
                     Go to Sign In
                   </Link>
                   <button
-                    onClick={() => setSignUpSuccess(false)}
-                    className="px-4 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors"
+                    type="button"
+                    onClick={handleResend}
+                    disabled={resending}
+                    className="px-4 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
                   >
-                    Try Again
+                    {resending ? 'Resending…' : 'Resend Verification Email'}
                   </button>
                 </div>
+                {resendMsg && (
+                  <p className="text-green-100/90 text-sm mt-3">{resendMsg}</p>
+                )}
               </div>
             </div>
           )}

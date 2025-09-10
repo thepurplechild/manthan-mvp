@@ -17,6 +17,8 @@ export function LoginForm({
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resendMsg, setResendMsg] = useState<string | null>(null);
   const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -50,6 +52,29 @@ export function LoginForm({
       }
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    setResendMsg(null);
+    if (!email) {
+      setResendMsg('Enter your email above first.');
+      return;
+    }
+    setResending(true);
+    const supabase = createClient();
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email,
+        options: { emailRedirectTo: `${window.location.origin}/auth/confirm?next=/dashboard` },
+      } as any);
+      if (error) throw error;
+      setResendMsg('Verification email sent. Check your inbox and spam folder.');
+    } catch (err: any) {
+      setResendMsg(err?.message || 'Resend failed');
+    } finally {
+      setResending(false);
     }
   };
 
@@ -159,6 +184,22 @@ export function LoginForm({
                 <div className="bg-manthan-coral-50 border border-manthan-coral-200 text-manthan-coral-700 p-4 rounded-2xl text-sm animate-slideUp">
                   {error}
                 </div>
+              )}
+
+              {/* Resend verification helper */}
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-manthan-charcoal-500">Didn't get the email?</span>
+                <button
+                  type="button"
+                  onClick={handleResend}
+                  disabled={resending}
+                  className="text-manthan-royal-600 hover:text-manthan-royal-700 font-medium disabled:opacity-50"
+                >
+                  {resending ? 'Resending…' : 'Resend verification'}
+                </button>
+              </div>
+              {resendMsg && (
+                <p className="text-xs text-manthan-charcoal-600 mt-1">{resendMsg}</p>
               )}
 
               {/* Login Button */}
