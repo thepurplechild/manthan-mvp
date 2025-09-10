@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from 'next/link'
-import { Plus, FileText, Clock, CheckCircle, BarChart3, Upload, Eye, Download } from 'lucide-react'
+import { Plus, FileText, Clock, CheckCircle, BarChart3, Upload, Eye, Download, Sparkles, Newspaper, TrendingUp, Building2 } from 'lucide-react'
 
 export default async function Dashboard() {
   const supabase = await createClient();
@@ -29,6 +29,39 @@ export default async function Dashboard() {
     `)
     .eq('owner_id', user.id)
     .order('created_at', { ascending: false })
+
+  // Recent activity (uploads/assets)
+  const recentUploads = (projects || [])
+    .flatMap((p: any) => (p.script_uploads || []).map((u: any) => ({
+      type: 'upload' as const,
+      projectId: p.id,
+      projectTitle: p.title,
+      at: u.uploaded_at,
+      label: u.file_name || 'Script upload'
+    })))
+  const recentAssets = (projects || [])
+    .flatMap((p: any) => (p.generated_assets || []).map((a: any) => ({
+      type: 'asset' as const,
+      projectId: p.id,
+      projectTitle: p.title,
+      at: a.created_at,
+      label: a.asset_type
+    })))
+  const recentActivity = [...recentUploads, ...recentAssets]
+    .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
+    .slice(0, 5)
+
+  // Market trends from your genres
+  const genreCounts: Record<string, number> = {}
+  for (const p of projects || []) {
+    if (Array.isArray((p as any).genre)) {
+      for (const g of (p as any).genre) {
+        if (!g) continue
+        genreCounts[g] = (genreCounts[g] || 0) + 1
+      }
+    }
+  }
+  const topGenres = Object.entries(genreCounts).sort((a, b) => b[1] - a[1]).slice(0, 5)
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -79,10 +112,16 @@ export default async function Dashboard() {
       <div className="container mx-auto px-6 py-12">
         {/* Header Section */}
         <div className="mb-12">
-          <h1 className="text-4xl font-bold text-white mb-4">Your Creative Dashboard</h1>
-          <p className="text-purple-200 text-lg">
-            Manage your projects, track progress, and watch your stories come to life.
-          </p>
+          <h1 className="text-4xl font-bold text-white mb-2">Your Creative Dashboard</h1>
+          <p className="text-purple-200 text-lg">Manage your projects, track progress, and watch your stories come to life.</p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <Link href="/projects/new" className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 px-4 py-2 rounded-xl text-white">
+              <Plus className="w-4 h-4" /> New Project
+            </Link>
+            <Link href="/test-ingestion" className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl text-white border border-white/20">
+              <Upload className="w-4 h-4" /> Upload Script
+            </Link>
+          </div>
         </div>
 
         {/* Stats Cards */}
@@ -144,6 +183,99 @@ export default async function Dashboard() {
           </Link>
         </div>
 
+        {/* India-focused widgets */}
+        <div className="grid lg:grid-cols-3 gap-6 mb-12">
+          <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2 text-white font-semibold">
+                <TrendingUp className="w-5 h-5" /> Market Trends
+              </div>
+              <span className="text-purple-200 text-sm">Your genres</span>
+            </div>
+            {topGenres.length > 0 ? (
+              <div className="space-y-3">
+                {topGenres.map(([g, c]) => (
+                  <div key={g} className="flex items-center justify-between">
+                    <span className="text-white/90">{g}</span>
+                    <span className="text-purple-200">{c}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-purple-200">Add genres to your projects to see trends.</p>
+            )}
+          </div>
+          <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2 text-white font-semibold">
+                <Building2 className="w-5 h-5" /> Platform Status
+              </div>
+              <span className="text-purple-200 text-sm">Connect data</span>
+            </div>
+            <ul className="space-y-2 text-purple-200">
+              <li>Netflix India — Actively acquiring</li>
+              <li>Prime Video India — Selective</li>
+              <li>Disney+ Hotstar — Actively acquiring</li>
+              <li>Zee5/SonyLIV — Genre dependent</li>
+            </ul>
+          </div>
+          <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2 text-white font-semibold">
+                <BarChart3 className="w-5 h-5" /> Revenue Tracker
+              </div>
+              <span className="text-purple-200 text-sm">Placeholder</span>
+            </div>
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <div>
+                <div className="text-2xl font-bold text-white">—</div>
+                <div className="text-purple-300 text-sm">Gross</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-white">—</div>
+                <div className="text-purple-300 text-sm">Estimates</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-white">—</div>
+                <div className="text-purple-300 text-sm">Pipelines</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Recent Activity & Community */}
+        <div className="grid lg:grid-cols-3 gap-6 mb-12">
+          <div className="lg:col-span-2 bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
+            <div className="flex items-center gap-2 text-white font-semibold mb-4">
+              <Sparkles className="w-5 h-5" /> Recent Activity
+            </div>
+            {recentActivity.length > 0 ? (
+              <ul className="space-y-3">
+                {recentActivity.map((a, idx) => (
+                  <li key={idx} className="flex items-center justify-between text-purple-200">
+                    <span>
+                      {a.type === 'upload' ? 'Upload' : 'Asset'} • {a.label} • <span className="text-white">{a.projectTitle}</span>
+                    </span>
+                    <span className="text-xs">{new Date(a.at).toLocaleString()}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-purple-300">No recent activity yet.</p>
+            )}
+          </div>
+          <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
+            <div className="flex items-center gap-2 text-white font-semibold mb-4">
+              <Newspaper className="w-5 h-5" /> Community Updates
+            </div>
+            <ul className="space-y-2 text-purple-200">
+              <li>• New OTT pitch windows opening next month</li>
+              <li>• Genre trends: Crime thrillers, slice-of-life web series</li>
+              <li>• Connect your industry feed to see more</li>
+            </ul>
+          </div>
+        </div>
+
         {/* Projects List */}
         <div className="space-y-6">
           {projects && projects.length > 0 ? (
@@ -163,7 +295,13 @@ export default async function Dashboard() {
                     )}
                     <div className="flex items-center space-x-6 text-sm text-purple-300">
                       <span>Created {new Date(project.created_at).toLocaleDateString()}</span>
-                      {project.genre && <span>Genre: {project.genre}</span>}
+                      {project.genre && <span>Genre: {Array.isArray(project.genre) ? project.genre.slice(0,2).join(', ') : project.genre}</span>}
+                      {project.character_breakdowns?.india_metadata?.languages?.length ? (
+                        <span>Lang: {project.character_breakdowns.india_metadata.languages.slice(0,2).join(', ')}</span>
+                      ) : null}
+                      {project.target_platforms?.length ? (
+                        <span>Platforms: {project.target_platforms.slice(0,2).join(', ')}</span>
+                      ) : null}
                       {project.script_uploads?.length > 0 && (
                         <span className="flex items-center gap-1">
                           <Upload className="w-4 h-4" />

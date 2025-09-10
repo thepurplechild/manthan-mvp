@@ -13,6 +13,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { ArrowLeft } from "lucide-react";
+import IndiaProjectFields from "@/components/projects/IndiaProjectFields";
 
 export default async function NewProjectPage() {
   const supabase = await createClient();
@@ -29,9 +30,12 @@ export default async function NewProjectPage() {
     const title = formData.get("title") as string;
     const logline = formData.get("logline") as string;
     const synopsis = formData.get("synopsis") as string;
-    const genre = formData.get("genre") as string;
-    const budgetRange = formData.get("budget_range") as string;
-    const targetPlatforms = formData.get("target_platforms") as string;
+    // Multi-select fields come as multiple entries
+    const genre = formData.getAll("genre") as string[];
+    const budgetRange = (formData.get("budget_range") as string) || null;
+    const targetPlatforms = formData.getAll("target_platforms") as string[];
+    const languages = formData.getAll("languages") as string[];
+    const audience = formData.getAll("target_audience") as string[];
     
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -48,9 +52,16 @@ export default async function NewProjectPage() {
         title,
         logline: logline || null,
         synopsis: synopsis || null,
-        genre: genre ? genre.split(',').map(g => g.trim()) : [],
-        budget_range: budgetRange || null,
-        target_platforms: targetPlatforms ? targetPlatforms.split(',').map(p => p.trim()) : [],
+        genre: Array.isArray(genre) ? genre : [],
+        budget_range: budgetRange,
+        target_platforms: Array.isArray(targetPlatforms) ? targetPlatforms : [],
+        // Store India-specific fields safely in JSON without schema changes
+        character_breakdowns: {
+          india_metadata: {
+            languages,
+            target_audience: audience,
+          }
+        },
         status: "draft"
       })
       .select()
@@ -147,56 +158,8 @@ export default async function NewProjectPage() {
                 </p>
               </div>
 
-              {/* Genre */}
-              <div className="space-y-2">
-                <Label htmlFor="genre" className="text-white">
-                  Genre(s)
-                </Label>
-                <Input
-                  id="genre"
-                  name="genre"
-                  type="text"
-                  placeholder="Drama, Thriller, Comedy, etc. (comma-separated)"
-                  className="bg-white/5 border-white/20 text-white placeholder-purple-300"
-                />
-                <p className="text-sm text-purple-300">
-                  Enter multiple genres separated by commas
-                </p>
-              </div>
-
-              {/* Budget Range */}
-              <div className="space-y-2">
-                <Label htmlFor="budget_range" className="text-white">
-                  Estimated Budget Range
-                </Label>
-                <Input
-                  id="budget_range"
-                  name="budget_range"
-                  type="text"
-                  placeholder="Below 1 Cr, 1-5 Cr, 5-10 Cr, etc."
-                  className="bg-white/5 border-white/20 text-white placeholder-purple-300"
-                />
-                <p className="text-sm text-purple-300">
-                  Rough budget estimate for production (optional)
-                </p>
-              </div>
-
-              {/* Target Platforms */}
-              <div className="space-y-2">
-                <Label htmlFor="target_platforms" className="text-white">
-                  Target Platforms
-                </Label>
-                <Input
-                  id="target_platforms"
-                  name="target_platforms"
-                  type="text"
-                  placeholder="Netflix, Amazon Prime, YouTube, etc. (comma-separated)"
-                  className="bg-white/5 border-white/20 text-white placeholder-purple-300"
-                />
-                <p className="text-sm text-purple-300">
-                  Which platforms are you targeting for this project?
-                </p>
-              </div>
+              {/* India-specific fields */}
+              <IndiaProjectFields />
 
               {/* Submit Button */}
               <div className="pt-4">
