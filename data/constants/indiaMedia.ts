@@ -1,5 +1,6 @@
 // data/constants/indiaMedia.ts
-export const INDIA_GENRES = [
+// Canonical sets
+export const GENRES = [
   'Bollywood Drama',
   'Web Series',
   'Documentary',
@@ -26,9 +27,10 @@ export const INDIA_GENRES = [
   'Gujarati Cinema',
   'Odia Cinema',
   'Assamese Cinema'
+  'Assamese Cinema'
 ] as const;
 
-export const INDIA_PLATFORMS = [
+export const PLATFORMS = [
   'Netflix India',
   'Prime Video India',
   'Disney+ Hotstar',
@@ -41,9 +43,10 @@ export const INDIA_PLATFORMS = [
   'YouTube India',
   'Instagram Reels',
   'Regional OTTs'
+  'Regional OTTs'
 ] as const;
 
-export const INDIA_LANGUAGES = [
+export const LANGUAGES = [
   'Hindi',
   'English',
   'Tamil',
@@ -57,9 +60,10 @@ export const INDIA_LANGUAGES = [
   'Odia',
   'Assamese',
   'Multi-language/Dubbed'
+  'Multi-language/Dubbed'
 ] as const;
 
-export const INDIA_BUDGET_RANGES = [
+export const BUDGETS = [
   'Under ₹5L',
   '₹5L–₹25L',
   '₹25L–₹1Cr',
@@ -68,7 +72,7 @@ export const INDIA_BUDGET_RANGES = [
   '₹15Cr+'
 ] as const;
 
-export const INDIA_TARGET_AUDIENCE = [
+export const TARGET_AUDIENCES = [
   'Urban Youth 18-25',
   'Young Adults 25-35',
   'Family',
@@ -77,3 +81,9 @@ export const INDIA_TARGET_AUDIENCE = [
   'Niche'
 ] as const;
 
+// Backwards-compatible aliases used by existing UI components
+export const INDIA_GENRES = GENRES;
+export const INDIA_PLATFORMS = PLATFORMS;
+export const INDIA_LANGUAGES = LANGUAGES;
+export const INDIA_BUDGET_RANGES = BUDGETS;
+export const INDIA_TARGET_AUDIENCE = TARGET_AUDIENCES;
