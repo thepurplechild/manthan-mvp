@@ -2,11 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { randomUUID } from 'crypto'
+import { rateLimit } from '@/lib/rate-limit'
 
 const MAX_SIZE = 10 * 1024 * 1024 // 10MB
 const ACCEPTED = new Set(['application/pdf','text/plain','application/vnd.openxmlformats-officedocument.wordprocessingml.document'])
 
 export async function POST(req: NextRequest) {
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+  const rl = rateLimit(`upload:${ip}`, 10, 60000)
+  if (!rl.allowed) {
+    return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429, headers: { 'Retry-After': String(Math.ceil(rl.retryAfter/1000)) } })
+  }
   const cookieStore = await cookies()
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -83,4 +89,3 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ ingestion_id: ingestion.id, path })
 }
-

@@ -2,11 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { ingestFile } from '@/lib/ingestion/core'
+import { rateLimit } from '@/lib/rate-limit'
 
 type StepName = 'script_preprocess'|'core_extraction'|'character_bible'|'market_adaptation'|'package_assembly'|'final_package'
 
 export async function POST(req: NextRequest) {
   const { ingestion_id } = await req.json()
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+  const rl = rateLimit(`run:${ip}`, 20, 60000)
+  if (!rl.allowed) {
+    return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429, headers: { 'Retry-After': String(Math.ceil(rl.retryAfter/1000)) } })
+  }
   if (!ingestion_id) return NextResponse.json({ error: 'Missing ingestion_id' }, { status: 400 })
 
   const cookieStore = await cookies()
@@ -99,4 +105,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: String(e?.message || e) }, { status: 500 })
   }
 }
-

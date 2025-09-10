@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
+function etagOf(s: string) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return 'W/"' + h.toString(16) + '"';
+}
+
 export async function GET(req: NextRequest) {
   const region = req.nextUrl.searchParams.get('region') || ''
   const language = req.nextUrl.searchParams.get('language') || ''
@@ -17,6 +23,10 @@ export async function GET(req: NextRequest) {
   // Prefer RPC if function exists
   const { data, error } = await supabase.rpc('recommend_content', { region, language, genre })
   if (error) return NextResponse.json({ error: error.message }, { status: 500, headers: { 'Cache-Control': 's-maxage=30' } })
-  return NextResponse.json(data, { headers: { 'Cache-Control': 's-maxage=120' } })
+  const body = JSON.stringify(data)
+  const etag = etagOf(body)
+  if (req.headers.get('if-none-match') === etag) {
+    return new NextResponse(null, { status: 304, headers: { 'ETag': etag, 'Cache-Control': 's-maxage=120' } })
+  }
+  return new NextResponse(body, { status: 200, headers: { 'Content-Type': 'application/json', 'ETag': etag, 'Cache-Control': 's-maxage=120' } })
 }
-
