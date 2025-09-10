@@ -315,8 +315,12 @@ export default async function Dashboard() {
                       {project.character_breakdowns?.india_metadata?.languages?.length ? (
                         <span>Lang: {project.character_breakdowns.india_metadata.languages.slice(0,2).join(', ')}</span>
                       ) : null}
-                      {project.target_platforms?.length ? (
-                        <span>Platforms: {project.target_platforms.slice(0,2).join(', ')}</span>
+                      {project.target_platforms ? (
+                        <span>
+                          Platforms: {Array.isArray(project.target_platforms)
+                            ? project.target_platforms.slice(0, 2).join(', ')
+                            : String(project.target_platforms)}
+                        </span>
                       ) : null}
                       {project.script_uploads?.length > 0 && (
                         <span className="flex items-center gap-1">
