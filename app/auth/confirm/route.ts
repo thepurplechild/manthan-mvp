@@ -7,24 +7,25 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const token_hash = searchParams.get("token_hash");
   const type = searchParams.get("type") as EmailOtpType | null;
+  const code = searchParams.get("code"); // PKCE/OTP exchange code (newer flow)
   const next = searchParams.get("next") ?? "/";
 
-  if (token_hash && type) {
-    const supabase = await createClient();
+  const supabase = await createClient();
 
-    const { error } = await supabase.auth.verifyOtp({
-      type,
-      token_hash,
-    });
-    if (!error) {
-      // redirect user to specified redirect URL or root of app
-      redirect(next);
-    } else {
-      // redirect the user to an error page with some instructions
-      redirect(`/auth/error?error=${error?.message}`);
-    }
+  // Handle the `code` param (exchange code for a session)
+  if (code) {
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    if (!error) redirect(next);
+    redirect(`/auth/error?error=${encodeURIComponent(error?.message ?? 'Code exchange failed')}`);
+  }
+
+  // Fallback: handle legacy token_hash/type verification
+  if (token_hash && type) {
+    const { error } = await supabase.auth.verifyOtp({ type, token_hash });
+    if (!error) redirect(next);
+    redirect(`/auth/error?error=${encodeURIComponent(error?.message ?? 'OTP verification failed')}`);
   }
 
   // redirect the user to an error page with some instructions
-  redirect(`/auth/error?error=No token hash or type`);
+  redirect(`/auth/error?error=No token or code provided`);
 }
