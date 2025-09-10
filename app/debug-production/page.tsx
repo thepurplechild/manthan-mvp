@@ -41,24 +41,24 @@ export default function ProductionDebugPage() {
       const supabase = createClient()
       
       // Test basic connection
-      const { data, error } = await supabase.from('profiles').select('count').limit(1)
+      const { error } = await supabase.from('profiles').select('count').limit(1)
       
       if (error) {
         addLog(`❌ Supabase connection error: ${error.message}`)
-        setTestResults(prev => ({ ...prev, connectionTest: 'failed', connectionError: error.message }))
+        setTestResults((prev: any) => ({ ...prev, connectionTest: 'failed', connectionError: error.message }))
       } else {
         addLog('✅ Supabase connection successful')
-        setTestResults(prev => ({ ...prev, connectionTest: 'success' }))
+        setTestResults((prev: any) => ({ ...prev, connectionTest: 'success' }))
       }
 
       // Test auth status
       const { data: { user } } = await supabase.auth.getUser()
       addLog(`Current user: ${user ? `${user.email} (${user.id.substring(0, 8)}...)` : 'None'}`)
-      setTestResults(prev => ({ ...prev, currentUser: user ? user.email : null }))
+      setTestResults((prev: any) => ({ ...prev, currentUser: user ? user.email : null }))
 
     } catch (error) {
       addLog(`💥 Connection exception: ${error instanceof Error ? error.message : String(error)}`)
-      setTestResults(prev => ({ ...prev, connectionTest: 'exception', connectionError: String(error) }))
+      setTestResults((prev: any) => ({ ...prev, connectionTest: 'exception', connectionError: String(error) }))
     }
   }
 
@@ -78,11 +78,11 @@ export default function ProductionDebugPage() {
 
       if (error) {
         addLog(`❌ Sign-up error: ${error.message}`)
-        setTestResults(prev => ({ ...prev, signUpTest: 'failed', signUpError: error.message }))
+        setTestResults((prev: any) => ({ ...prev, signUpTest: 'failed', signUpError: error.message }))
       } else {
         addLog(`✅ Sign-up successful! User: ${data.user?.id?.substring(0, 8) || 'unknown'}`)
         addLog(`Email confirmed: ${!!data.user?.email_confirmed_at}`)
-        setTestResults(prev => ({ 
+        setTestResults((prev: any) => ({ 
           ...prev, 
           signUpTest: 'success', 
           signUpUserId: data.user?.id,
@@ -91,7 +91,7 @@ export default function ProductionDebugPage() {
       }
     } catch (error) {
       addLog(`💥 Sign-up exception: ${error instanceof Error ? error.message : String(error)}`)
-      setTestResults(prev => ({ ...prev, signUpTest: 'exception', signUpError: String(error) }))
+      setTestResults((prev: any) => ({ ...prev, signUpTest: 'exception', signUpError: String(error) }))
     }
   }
 
@@ -111,14 +111,14 @@ export default function ProductionDebugPage() {
 
       if (error) {
         addLog(`❌ Sign-in error: ${error.message}`)
-        setTestResults(prev => ({ ...prev, signInTest: 'failed', signInError: error.message }))
+        setTestResults((prev: any) => ({ ...prev, signInTest: 'failed', signInError: error.message }))
       } else {
         addLog(`✅ Sign-in successful! User: ${data.user?.id?.substring(0, 8) || 'unknown'}`)
-        setTestResults(prev => ({ ...prev, signInTest: 'success', signInUserId: data.user?.id }))
+        setTestResults((prev: any) => ({ ...prev, signInTest: 'success', signInUserId: data.user?.id }))
       }
     } catch (error) {
       addLog(`💥 Sign-in exception: ${error instanceof Error ? error.message : String(error)}`)
-      setTestResults(prev => ({ ...prev, signInTest: 'exception', signInError: String(error) }))
+      setTestResults((prev: any) => ({ ...prev, signInTest: 'exception', signInError: String(error) }))
     }
   }
 
@@ -143,14 +143,14 @@ export default function ProductionDebugPage() {
 
       if (response.ok) {
         addLog('✅ Network connectivity to Supabase: OK')
-        setTestResults(prev => ({ ...prev, networkTest: 'success' }))
+        setTestResults((prev: any) => ({ ...prev, networkTest: 'success' }))
       } else {
         addLog(`❌ Network error: ${response.status} ${response.statusText}`)
-        setTestResults(prev => ({ ...prev, networkTest: 'failed', networkError: `${response.status} ${response.statusText}` }))
+        setTestResults((prev: any) => ({ ...prev, networkTest: 'failed', networkError: `${response.status} ${response.statusText}` }))
       }
     } catch (error) {
       addLog(`💥 Network exception: ${error instanceof Error ? error.message : String(error)}`)
-      setTestResults(prev => ({ ...prev, networkTest: 'exception', networkError: String(error) }))
+      setTestResults((prev: any) => ({ ...prev, networkTest: 'exception', networkError: String(error) }))
     }
   }
 

@@ -15,9 +15,7 @@ import { promisify } from 'util';
 import {
   IngestedContent,
   SupportedFileType,
-  ContentType,
   IngestionWarning,
-  IngestionError,
   IngestionProgressCallback
 } from './types';
 import { logger } from './logger';
@@ -59,30 +57,13 @@ export interface ParseResult {
   warnings: IngestionWarning[];
 }
 
-/**
- * Generate content ID
- */
-function generateContentId(): string {
-  return createHash('sha256')
-    .update(Date.now().toString() + Math.random().toString())
-    .digest('hex')
-    .substring(0, 16);
-}
-
-/**
- * Generate checksum for content
- */
-function generateChecksum(content: string): string {
-  return createHash('sha256').update(content).digest('hex');
-}
 
 /**
  * Basic metadata extraction from text content
  */
 function extractBasicMetadata(
   filename: string,
-  content: string,
-  fileSize: number
+  content: string
 ): IngestedContent['metadata'] {
   const lines = content.split('\n').filter(line => line.trim());
   const words = content.split(/\s+/).filter(word => word.length > 0);
@@ -168,7 +149,7 @@ export async function parseTextFile(
       details: 'Analyzing content structure'
     });
 
-    const metadata = extractBasicMetadata(filename, content, buffer.length);
+    const metadata = extractBasicMetadata(filename, content);
 
     progressCallback?.({
       currentStep: 'Text parsing complete',
@@ -213,7 +194,7 @@ export async function parsePdfFile(
       details: `Processing ${pdfData.numpages} pages`
     });
 
-    let content = pdfData.text;
+    const content = pdfData.text;
 
     // Check for empty content
     if (!content || content.trim().length === 0) {
@@ -250,7 +231,7 @@ export async function parsePdfFile(
       details: 'Analyzing PDF metadata'
     });
 
-    const metadata = extractBasicMetadata(filename, content, buffer.length);
+    const metadata = extractBasicMetadata(filename, content);
     
     // Add PDF-specific metadata
     metadata.pageCount = pdfData.numpages;
@@ -305,7 +286,7 @@ export async function parseFinalDraftFile(
 
     const xmlContent = buffer.toString('utf-8');
     const parser = new xml2js.Parser({ explicitArray: false, ignoreAttrs: false });
-    const parseXML = promisify(parser.parseString.bind(parser)) as (xml: string) => Promise<any>;
+    const parseXML = promisify(parser.parseString.bind(parser)) as (xml: string) => Promise<unknown>;
 
     const result = await parseXML(xmlContent);
 
@@ -316,7 +297,7 @@ export async function parseFinalDraftFile(
     });
 
     // Extract FDX structure
-    const fdxDocument = result.FinalDraft;
+    const fdxDocument = (result as any).FinalDraft;
     if (!fdxDocument) {
       throw new Error('Invalid Final Draft format: missing FinalDraft root element');
     }
@@ -327,7 +308,7 @@ export async function parseFinalDraftFile(
     let textContent = '';
     const scenes: ScriptScene[] = [];
     let currentScene: Partial<ScriptScene> | null = null;
-    let characters: Set<string> = new Set();
+    const characters: Set<string> = new Set();
 
     // Extract title page information
     let scriptTitle = '';
@@ -437,7 +418,7 @@ export async function parseFinalDraftFile(
       }
     };
 
-    const metadata = extractBasicMetadata(filename, textContent, buffer.length);
+    const metadata = extractBasicMetadata(filename, textContent);
     metadata.title = scriptTitle || metadata.title;
     metadata.author = scriptAuthor || metadata.author;
     metadata.custom = {
@@ -527,29 +508,29 @@ export async function parseCeltxFile(
 
     const xmlContent = scriptEntry.getData().toString('utf-8');
     const parser = new xml2js.Parser({ explicitArray: false, ignoreAttrs: false });
-    const parseXML = promisify(parser.parseString.bind(parser)) as (xml: string) => Promise<any>;
+    const parseXML = promisify(parser.parseString.bind(parser)) as (xml: string) => Promise<unknown>;
 
     const result = await parseXML(xmlContent);
 
     // Process Celtx XML structure (similar to FDX but with different schema)
     let textContent = '';
     const scenes: ScriptScene[] = [];
-    let characters: Set<string> = new Set();
+    const characters: Set<string> = new Set();
 
     // Celtx has a different XML structure than FDX
     // This is a simplified parser - in practice, you'd need to handle the specific Celtx schema
-    const extractTextFromElement = (element: any): string => {
+    const extractTextFromElement = (element: unknown): string => {
       if (typeof element === 'string') {
         return element;
       }
-      if (element._ && typeof element._ === 'string') {
-        return element._;
+      if ((element as any)._ && typeof (element as any)._ === 'string') {
+        return (element as any)._;
       }
       if (Array.isArray(element)) {
         return element.map(extractTextFromElement).join('\n');
       }
       if (typeof element === 'object' && element !== null) {
-        return Object.values(element).map(extractTextFromElement).join('\n');
+        return Object.values(element as any).map(extractTextFromElement).join('\n');
       }
       return '';
     };
@@ -594,7 +575,7 @@ export async function parseCeltxFile(
       }
     };
 
-    const metadata = extractBasicMetadata(filename, textContent, buffer.length);
+    const metadata = extractBasicMetadata(filename, textContent);
     metadata.custom = {
       sceneCount: scenes.length,
       characterCount: characters.size,
@@ -646,7 +627,7 @@ export async function parseWordDocument(
     });
 
     const result = await mammoth.extractRawText({ buffer });
-    let textContent = result.value;
+    const textContent = result.value;
 
     progressCallback?.({
       currentStep: 'Processing document content',
@@ -704,7 +685,7 @@ export async function parseWordDocument(
       details: 'Analyzing document metadata'
     });
 
-    const metadata = extractBasicMetadata(filename, textContent, buffer.length);
+    const metadata = extractBasicMetadata(filename, textContent);
     
     // Try to extract more structured information from Word doc
     const lines = textContent.split('\n').filter(line => line.trim());
@@ -788,7 +769,7 @@ export async function parsePowerPointFile(
       
       try {
         const parser = new xml2js.Parser({ explicitArray: false, ignoreAttrs: false });
-        const parseXML = promisify(parser.parseString.bind(parser)) as (xml: string) => Promise<any>;
+        const parseXML = promisify(parser.parseString.bind(parser)) as (xml: string) => Promise<unknown>;
         const slideData = await parseXML(slideXml);
 
         textContent += `\n--- Slide ${slideCount} ---\n`;
@@ -818,7 +799,7 @@ export async function parsePowerPointFile(
         extractTextFromSlide(slideData);
         textContent += '\n';
 
-      } catch (slideError) {
+      } catch (_slideError) {
         warnings.push({
           type: 'partial_extraction',
           message: `Could not parse slide ${slideCount}`,
@@ -843,7 +824,7 @@ export async function parsePowerPointFile(
         
         try {
           const parser = new xml2js.Parser({ explicitArray: false, ignoreAttrs: false });
-          const parseXML = promisify(parser.parseString.bind(parser)) as (xml: string) => Promise<any>;
+          const parseXML = promisify(parser.parseString.bind(parser)) as (xml: string) => Promise<unknown>;
           const notesData = await parseXML(notesXml);
 
           const extractNotesText = (obj: any): void => {
@@ -890,19 +871,19 @@ export async function parsePowerPointFile(
       try {
         const corePropsXml = corePropsEntry.getData().toString('utf-8');
         const parser = new xml2js.Parser({ explicitArray: false, ignoreAttrs: false });
-        const parseXML = promisify(parser.parseString.bind(parser)) as (xml: string) => Promise<any>;
+        const parseXML = promisify(parser.parseString.bind(parser)) as (xml: string) => Promise<unknown>;
         const coreProps = await parseXML(corePropsXml);
 
-        if (coreProps['cp:coreProperties']) {
-          presentationTitle = coreProps['cp:coreProperties']['dc:title'] || '';
-          presentationAuthor = coreProps['cp:coreProperties']['dc:creator'] || '';
+        if ((coreProps as any)['cp:coreProperties']) {
+          presentationTitle = (coreProps as any)['cp:coreProperties']['dc:title'] || '';
+          presentationAuthor = (coreProps as any)['cp:coreProperties']['dc:creator'] || '';
         }
       } catch {
         // Ignore metadata extraction errors
       }
     }
 
-    const metadata = extractBasicMetadata(filename, textContent, buffer.length);
+    const metadata = extractBasicMetadata(filename, textContent);
     metadata.title = presentationTitle || metadata.title;
     metadata.author = presentationAuthor || metadata.author;
     metadata.pageCount = slideCount;

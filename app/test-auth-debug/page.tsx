@@ -24,7 +24,7 @@ export default function AuthDebugPage() {
       const supabase = createClient()
       
       addLog('Testing Supabase connection...')
-      const { data, error } = await supabase.from('profiles').select('count').limit(1)
+      const { error } = await supabase.from('profiles').select('count').limit(1)
       
       if (error) {
         addLog(`Supabase connection error: ${error.message}`)

@@ -1,5 +1,6 @@
 import './globals.css'
 import Navigation from '@/components/Navigation'
+import AsyncErrorBoundary from '@/components/async-error-boundary'
 
 export default function RootLayout({
   children,
@@ -9,8 +10,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <Navigation />
-        {children}
+        <AsyncErrorBoundary>
+          <Navigation />
+          {children}
+        </AsyncErrorBoundary>
       </body>
     </html>
   )

@@ -21,26 +21,20 @@ export function LoginForm({
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Login form submitted with:", { email, password: "***" });
     
     const supabase = createClient();
-    console.log("Supabase client created:", !!supabase);
     
     setIsLoading(true);
     setError(null);
 
     try {
-      console.log("Attempting to sign in...");
-      const { error, data } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
       
-      console.log("Sign in result:", { error, user: data?.user?.id });
-      
       if (error) throw error;
       
-      console.log("Sign in successful, redirecting to dashboard");
       router.push("/dashboard");
     } catch (error: unknown) {
       console.error("Sign in error:", error);

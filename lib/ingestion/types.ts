@@ -106,7 +106,7 @@ export interface IngestedContent {
     formatVersion?: string;
     
     /** Additional custom properties */
-    custom?: Record<string, any>;
+    custom?: Record<string, unknown>;
   };
   
   /** Timestamp when content was ingested */
@@ -247,7 +247,7 @@ export interface IngestionResult {
     metrics: Record<string, number>;
     
     /** Internal processing details */
-    internal: Record<string, any>;
+    internal: Record<string, unknown>;
   };
 }
 
@@ -277,7 +277,7 @@ export interface IngestionOptions {
   validateContent?: boolean;
   
   /** Custom processing options */
-  customOptions?: Record<string, any>;
+  customOptions?: Record<string, unknown>;
   
   /** User context for logging and analytics */
   userContext?: {

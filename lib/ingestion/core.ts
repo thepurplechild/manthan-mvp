@@ -15,8 +15,6 @@ import {
   IngestionProgressCallback,
   SupportedFileType,
   ContentType,
-  ContentPriority,
-  ProcessingStatus,
   SUPPORTED_FILE_TYPES,
   MAX_FILE_SIZE_BYTES,
   IngestionErrorType,
@@ -327,7 +325,7 @@ async function extractTextContent(
   fileType: SupportedFileType,
   fileBuffer: Buffer,
   progressCallback?: IngestionProgressCallback
-): Promise<{ content: string; warnings: IngestionWarning[]; structuredContent?: any; enhancedMetadata?: any }> {
+): Promise<{ content: string; warnings: IngestionWarning[]; structuredContent?: unknown; enhancedMetadata?: unknown }> {
   const { parseFile } = await import('./parsers');
   
   try {
@@ -350,8 +348,7 @@ async function extractTextContent(
  */
 function extractMetadata(
   filename: string,
-  content: string,
-  fileSize: number
+  content: string
 ): IngestedContent['metadata'] {
   const words = content.split(/\s+/).filter(word => word.length > 0);
   const lines = content.split('\n');
@@ -493,7 +490,7 @@ export async function ingestFile(
     // Step 4: Create ingested content
     result.debug!.steps.push('Metadata extraction');
     const contentType = detectContentType(filename, content);
-    const metadata = extractMetadata(filename, content, fileSize);
+    const metadata = extractMetadata(filename, content);
     const checksum = generateChecksum(content);
     
     const ingestedContent: IngestedContent = {

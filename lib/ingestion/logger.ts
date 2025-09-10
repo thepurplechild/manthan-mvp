@@ -16,7 +16,7 @@ export interface LogContext {
   fileType?: string;
   fileSize?: number;
   step?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface LogEntry {

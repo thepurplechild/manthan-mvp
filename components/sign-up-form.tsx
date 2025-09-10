@@ -35,10 +35,8 @@ export function SignUpForm({
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Signup form submitted with:", { email, fullName, acceptedRights });
     
     const supabase = createClient();
-    console.log("Supabase client created:", !!supabase);
     
     setIsLoading(true);
     setError(null);
@@ -56,7 +54,6 @@ export function SignUpForm({
     }
 
     try {
-      console.log("Attempting to sign up...");
       const { error, data } = await supabase.auth.signUp({
         email,
         password,
@@ -68,17 +65,13 @@ export function SignUpForm({
         },
       });
       
-      console.log("Sign up result:", { error, user: data?.user?.id, emailConfirmed: data?.user?.email_confirmed_at });
-      
       if (error) throw error;
       
       if (data?.user && !data.user.email_confirmed_at) {
         // User created but needs email confirmation
-        console.log("Sign up successful, email confirmation required");
         setSignUpSuccess(true);
       } else {
         // User created and confirmed (unlikely but possible)
-        console.log("Sign up successful, redirecting to dashboard");
         router.push("/dashboard");
       }
     } catch (error: unknown) {
