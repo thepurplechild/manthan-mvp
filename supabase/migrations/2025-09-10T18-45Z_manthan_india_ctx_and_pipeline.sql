@@ -88,56 +88,123 @@ ALTER TABLE public.ingestion_steps ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.packages ENABLE ROW LEVEL SECURITY;
 
 -- Authenticated can read trends; only service role/admin can write
-CREATE POLICY IF NOT EXISTS indian_market_trends_read ON public.indian_market_trends
-  FOR SELECT TO authenticated USING (true);
-CREATE POLICY IF NOT EXISTS indian_market_trends_admin_write ON public.indian_market_trends
-  FOR ALL TO service_role USING (true) WITH CHECK (true);
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE schemaname = 'public' AND tablename = 'indian_market_trends' AND policyname = 'indian_market_trends_read'
+  ) THEN
+    CREATE POLICY indian_market_trends_read ON public.indian_market_trends
+      FOR SELECT TO authenticated USING (true);
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE schemaname = 'public' AND tablename = 'indian_market_trends' AND policyname = 'indian_market_trends_admin_write'
+  ) THEN
+    CREATE POLICY indian_market_trends_admin_write ON public.indian_market_trends
+      FOR ALL TO service_role USING (true) WITH CHECK (true);
+  END IF;
+END $$;
 
 -- Creator network: owner RW, others no access
-CREATE POLICY IF NOT EXISTS creator_network_owner_rw ON public.creator_network
-  FOR ALL TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE schemaname = 'public' AND tablename = 'creator_network' AND policyname = 'creator_network_owner_rw'
+  ) THEN
+    CREATE POLICY creator_network_owner_rw ON public.creator_network
+      FOR ALL TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+  END IF;
+END $$;
 
 -- Ingestions: owner RW
-CREATE POLICY IF NOT EXISTS ingestions_owner_rw ON public.ingestions
-  FOR ALL TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE schemaname = 'public' AND tablename = 'ingestions' AND policyname = 'ingestions_owner_rw'
+  ) THEN
+    CREATE POLICY ingestions_owner_rw ON public.ingestions
+      FOR ALL TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+  END IF;
+END $$;
 
 -- Steps: visible via parent ingestion ownership
-CREATE POLICY IF NOT EXISTS ingestion_steps_owner_r ON public.ingestion_steps
-  FOR SELECT TO authenticated USING (
-    EXISTS (
-      SELECT 1 FROM public.ingestions i WHERE i.id = ingestion_id AND i.user_id = auth.uid()
-    )
-  );
-CREATE POLICY IF NOT EXISTS ingestion_steps_owner_w ON public.ingestion_steps
-  FOR INSERT TO authenticated WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM public.ingestions i WHERE i.id = ingestion_id AND i.user_id = auth.uid()
-    )
-  );
-CREATE POLICY IF NOT EXISTS ingestion_steps_owner_u ON public.ingestion_steps
-  FOR UPDATE TO authenticated USING (
-    EXISTS (
-      SELECT 1 FROM public.ingestions i WHERE i.id = ingestion_id AND i.user_id = auth.uid()
-    )
-  ) WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM public.ingestions i WHERE i.id = ingestion_id AND i.user_id = auth.uid()
-    )
-  );
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE schemaname = 'public' AND tablename = 'ingestion_steps' AND policyname = 'ingestion_steps_owner_r'
+  ) THEN
+    CREATE POLICY ingestion_steps_owner_r ON public.ingestion_steps
+      FOR SELECT TO authenticated USING (
+        EXISTS (
+          SELECT 1 FROM public.ingestions i WHERE i.id = ingestion_id AND i.user_id = auth.uid()
+        )
+      );
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE schemaname = 'public' AND tablename = 'ingestion_steps' AND policyname = 'ingestion_steps_owner_w'
+  ) THEN
+    CREATE POLICY ingestion_steps_owner_w ON public.ingestion_steps
+      FOR INSERT TO authenticated WITH CHECK (
+        EXISTS (
+          SELECT 1 FROM public.ingestions i WHERE i.id = ingestion_id AND i.user_id = auth.uid()
+        )
+      );
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE schemaname = 'public' AND tablename = 'ingestion_steps' AND policyname = 'ingestion_steps_owner_u'
+  ) THEN
+    CREATE POLICY ingestion_steps_owner_u ON public.ingestion_steps
+      FOR UPDATE TO authenticated USING (
+        EXISTS (
+          SELECT 1 FROM public.ingestions i WHERE i.id = ingestion_id AND i.user_id = auth.uid()
+        )
+      ) WITH CHECK (
+        EXISTS (
+          SELECT 1 FROM public.ingestions i WHERE i.id = ingestion_id AND i.user_id = auth.uid()
+        )
+      );
+  END IF;
+END $$;
 
 -- Packages: owner R, insert by owner, updates typically by server
-CREATE POLICY IF NOT EXISTS packages_owner_r ON public.packages
-  FOR SELECT TO authenticated USING (
-    EXISTS (
-      SELECT 1 FROM public.ingestions i WHERE i.id = packages.ingestion_id AND i.user_id = auth.uid()
-    )
-  );
-CREATE POLICY IF NOT EXISTS packages_owner_w ON public.packages
-  FOR INSERT TO authenticated WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM public.ingestions i WHERE i.id = ingestion_id AND i.user_id = auth.uid()
-    )
-  );
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE schemaname = 'public' AND tablename = 'packages' AND policyname = 'packages_owner_r'
+  ) THEN
+    CREATE POLICY packages_owner_r ON public.packages
+      FOR SELECT TO authenticated USING (
+        EXISTS (
+          SELECT 1 FROM public.ingestions i WHERE i.id = ingestion_id AND i.user_id = auth.uid()
+        )
+      );
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE schemaname = 'public' AND tablename = 'packages' AND policyname = 'packages_owner_w'
+  ) THEN
+    CREATE POLICY packages_owner_w ON public.packages
+      FOR INSERT TO authenticated WITH CHECK (
+        EXISTS (
+          SELECT 1 FROM public.ingestions i WHERE i.id = ingestion_id AND i.user_id = auth.uid()
+        )
+      );
+  END IF;
+END $$;
 
 -- 6) Realtime triggers (for UI updates)
 CREATE OR REPLACE FUNCTION public.touch_updated_at() RETURNS trigger AS $$
@@ -174,4 +241,3 @@ FROM (
 GROUP BY region;
 
 -- END
-
