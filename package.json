@@ -37,7 +37,9 @@
     "uuid": "^10.0.0",
     "xml2js": "^0.6.2",
     "yauzl": "^3.2.0",
-    "zod": "^3.23.8"
+    "zod": "^3.23.8",
+    "react-hook-form": "^7.53.0",
+    "@hookform/resolvers": "^3.9.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

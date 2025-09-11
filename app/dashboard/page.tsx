@@ -119,14 +119,14 @@ export default async function Dashboard() {
       <div className="container mx-auto px-6 py-12">
         {/* Header Section */}
         <div className="mb-12">
-          <h1 className="text-4xl font-bold text-white mb-2">Your Creative Dashboard</h1>
+          <h1 className="text-4xl font-bold text-white mb-2">Welcome{profile?.full_name ? `, ${profile.full_name}` : ''}</h1>
           <p className="text-purple-200 text-lg">Manage your projects, track progress, and watch your stories come to life.</p>
           <div className="mt-4 flex flex-wrap gap-3">
             <Link href="/projects/new" className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 px-4 py-2 rounded-xl text-white">
-              <Plus className="w-4 h-4" /> New Project
+              <Plus className="w-4 h-4" /> Create New Project
             </Link>
-            <Link href="/test-ingestion" className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl text-white border border-white/20">
-              <Upload className="w-4 h-4" /> Upload Script
+            <Link href="/projects" className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl text-white border border-white/20">
+              <FileText className="w-4 h-4" /> View All Projects
             </Link>
           </div>
         </div>
@@ -190,7 +190,7 @@ export default async function Dashboard() {
           </Link>
         </div>
 
-        {/* India-focused widgets */}
+        {/* India-focused widgets & getting started */}
         <div className="grid lg:grid-cols-3 gap-6 mb-12">
           <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
             <div className="flex items-center justify-between mb-4">
@@ -256,6 +256,18 @@ export default async function Dashboard() {
                 <div className="text-purple-300 text-sm">Pipelines</div>
               </div>
             </div>
+          </div>
+          <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2 text-white font-semibold">
+                <CheckCircle className="w-5 h-5" /> Getting Started
+              </div>
+            </div>
+            <ol className="list-decimal list-inside text-purple-200 space-y-1">
+              <li>Create your first project</li>
+              <li>Upload your script (PDF/DOCX/TXT)</li>
+              <li>Generate the pitch package</li>
+            </ol>
           </div>
         </div>
 

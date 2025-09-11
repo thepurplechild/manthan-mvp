@@ -2,9 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import MultiStepProjectForm from "@/components/projects/MultiStepProjectForm";
 import {
   Card,
   CardContent,
@@ -101,76 +100,11 @@ export default async function NewProjectPage() {
 
         <Card className="bg-white/10 backdrop-blur-lg border-white/20">
           <CardHeader>
-            <CardTitle className="text-white">Project Details</CardTitle>
-            <CardDescription className="text-purple-200">
-              Provide the basic information about your script and project
-            </CardDescription>
+            <CardTitle className="text-white">Create New Project</CardTitle>
+            <CardDescription className="text-purple-200">Basic details, market fields, and optional script upload.</CardDescription>
           </CardHeader>
-          
           <CardContent>
-            <form action={createProject} className="space-y-6">
-              {/* Title */}
-              <div className="space-y-2">
-                <Label htmlFor="title" className="text-white">
-                  Project Title *
-                </Label>
-                <Input
-                  id="title"
-                  name="title"
-                  type="text"
-                  required
-                  placeholder="Enter your project title"
-                  className="bg-white/5 border-white/20 text-white placeholder-purple-300"
-                />
-              </div>
-
-              {/* Logline */}
-              <div className="space-y-2">
-                <Label htmlFor="logline" className="text-white">
-                  Logline
-                </Label>
-                <Input
-                  id="logline"
-                  name="logline"
-                  type="text"
-                  placeholder="A compelling one-sentence summary of your story"
-                  className="bg-white/5 border-white/20 text-white placeholder-purple-300"
-                />
-                <p className="text-sm text-purple-300">
-                  A concise, engaging summary that captures the essence of your story
-                </p>
-              </div>
-
-              {/* Synopsis */}
-              <div className="space-y-2">
-                <Label htmlFor="synopsis" className="text-white">
-                  Synopsis
-                </Label>
-                <Textarea
-                  id="synopsis"
-                  name="synopsis"
-                  rows={4}
-                  placeholder="Provide a detailed summary of your story, including main characters, plot, and themes"
-                  className="bg-white/5 border-white/20 text-white placeholder-purple-300"
-                />
-                <p className="text-sm text-purple-300">
-                  A more detailed overview of your story (optional but recommended)
-                </p>
-              </div>
-
-              {/* India-specific fields */}
-              <IndiaProjectFields />
-
-              {/* Submit Button */}
-              <div className="pt-4">
-                <Button
-                  type="submit"
-                  className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold py-3"
-                >
-                  Create Project
-                </Button>
-              </div>
-            </form>
+            <MultiStepProjectForm />
           </CardContent>
         </Card>
 

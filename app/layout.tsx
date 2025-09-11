@@ -4,6 +4,7 @@ import Footer from '@/components/Footer'
 import AsyncErrorBoundary from '@/components/async-error-boundary'
 import { Inter, Poppins } from 'next/font/google'
 import PWA from '@/components/PWA'
+import Toaster from '@/components/Toaster'
 
 const inter = Inter({ subsets: ['latin'], display: 'swap', variable: '--font-sans' })
 const poppins = Poppins({ weight: ['400','500','600','700','800'], subsets: ['latin'], display: 'swap', variable: '--font-heading' })
@@ -24,6 +25,7 @@ export default function RootLayout({
           <PWA />
           <NavBar />
           {children}
+          <Toaster />
           <Footer />
         </AsyncErrorBoundary>
       </body>
