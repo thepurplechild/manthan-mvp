@@ -21,11 +21,10 @@ export default function Toaster() {
     return () => window.removeEventListener('toast', handler as any)
   }, [])
   return (
-    <div aria-live="polite" className="fixed z-[100] bottom-4 right-4 space-y-2">
+    <div aria-live="polite" role="status" className="fixed z-[100] bottom-4 right-4 space-y-2">
       {toasts.map((t) => (
         <div key={t.id} className={`px-4 py-3 rounded-xl shadow-soft text-sm text-white ${t.type==='success'?'bg-green-600':t.type==='error'?'bg-red-600':'bg-slate-700'}`}>{t.message}</div>
       ))}
     </div>
   )
 }
-

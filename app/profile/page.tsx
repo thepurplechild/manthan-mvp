@@ -97,10 +97,9 @@ export default function ProfilePage() {
         </div>
         <div className="flex gap-2">
           <Button className="btn-indian" type="button" onClick={onSave}>Save</Button>
-          <a className="btn-outline-indian" href="#" onClick={(e) => { e.preventDefault(); toast('info','Public preview coming soon'); }}>Public Preview</a>
+          <button className="btn-outline-indian" type="button" onClick={() => toast('info','Public preview coming soon')}>Public Preview</button>
         </div>
       </div>
     </section>
   );
 }
-

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/Toaster";
+import Spinner from "@/components/ui/Spinner";
 
 const schema = z.object({
   title: z.string().min(3, "Title is required"),
@@ -125,11 +126,10 @@ export default function MultiStepProjectForm() {
           </div>
           <div className="flex justify-between items-center">
             <Button type="button" onClick={() => setStep(2)} className="btn-outline-indian">Back</Button>
-            <Button disabled={isSubmitting} type="submit" className="btn-indian">{isSubmitting? 'Creating…':'Create Project'}</Button>
+            <Button disabled={isSubmitting} type="submit" className="btn-indian flex items-center gap-2">{isSubmitting? (<><Spinner size={16} /> Creating…</>):'Create Project'}</Button>
           </div>
         </div>
       )}
     </form>
   );
 }
-
