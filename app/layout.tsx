@@ -1,5 +1,6 @@
 import './globals.css'
-import Navigation from '@/components/Navigation'
+import NavBar from '@/components/NavBar'
+import Footer from '@/components/Footer'
 import AsyncErrorBoundary from '@/components/async-error-boundary'
 import { Inter, Poppins } from 'next/font/google'
 import PWA from '@/components/PWA'
@@ -21,8 +22,9 @@ export default function RootLayout({
       <body className="bg-manthan-ivory-50 text-manthan-charcoal-800 font-sans">
         <AsyncErrorBoundary>
           <PWA />
-          <Navigation />
+          <NavBar />
           {children}
+          <Footer />
         </AsyncErrorBoundary>
       </body>
     </html>

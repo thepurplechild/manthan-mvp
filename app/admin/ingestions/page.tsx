@@ -37,14 +37,10 @@ export default async function AdminIngestions() {
                 <td className="py-2 pr-4">{r.progress}%</td>
                 <td className="py-2 pr-4 text-xs">{new Date(r.created_at).toLocaleString()}</td>
                 <td className="py-2 pr-4">
-                  <form action={`/api/ingestions/run`} method="post">
-                    <input type="hidden" name="ingestion_id" value={r.id} />
-                    <button className="px-3 py-1 rounded bg-purple-600 text-white text-xs" formAction="#" onClick={async (e) => {
-                      e.preventDefault()
-                      await fetch('/api/ingestions/run', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ingestion_id: r.id }) })
-                      location.reload()
-                    }}>Retry</button>
-                  </form>
+                  <button type="button" aria-label={`Retry ${r.id}`} className="px-3 py-1 rounded bg-purple-600 text-white text-xs" onClick={async () => {
+                    await fetch('/api/ingestions/run', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ingestion_id: r.id }) })
+                    location.reload()
+                  }}>Retry</button>
                 </td>
               </tr>
             ))}
@@ -54,4 +50,3 @@ export default async function AdminIngestions() {
     </div>
   )
 }
-
