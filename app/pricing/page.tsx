@@ -23,7 +23,17 @@ export default function PricingPage() {
           </div>
         ))}
       </div>
+      <div className="mt-10 max-w-3xl">
+        <h2 className="font-heading text-2xl font-semibold text-manthan-charcoal-800 mb-2">FAQ</h2>
+        <div className="card-indian p-4 mb-2">
+          <p className="font-semibold text-manthan-charcoal-800">Is there a free tier?</p>
+          <p className="text-manthan-charcoal-600">Yes, Starter is free for individuals getting started.</p>
+        </div>
+        <div className="card-indian p-4">
+          <p className="font-semibold text-manthan-charcoal-800">Do you support teams?</p>
+          <p className="text-manthan-charcoal-600">The Studio plan supports teams and shared workspaces.</p>
+        </div>
+      </div>
     </section>
   );
 }
-
