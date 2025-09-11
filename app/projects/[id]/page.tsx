@@ -6,14 +6,15 @@ export const metadata = {
   description: "Project details, uploads, and generated assets.",
 };
 
-export default async function ProjectDetail({ params }: { params: { id: string } }) {
+export default async function ProjectDetail({ params }: { params: Promise<{ id: string }> }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
+  const { id } = await params;
   const { data: project } = await supabase
     .from('projects')
     .select('*, script_uploads (*), generated_assets (*)')
-    .eq('id', params.id)
+    .eq('id', id)
     .single();
 
   if (!project) {
@@ -53,4 +54,3 @@ export default async function ProjectDetail({ params }: { params: { id: string }
     </section>
   );
 }
-
