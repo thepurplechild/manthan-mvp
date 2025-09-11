@@ -8,7 +8,8 @@
     "test": "npm run test:unit",
     "test:unit": "jest --runInBand",
     "test:e2e": "playwright test",
-    "test:e2e:init": "playwright install --with-deps || true"
+    "test:e2e:init": "playwright install --with-deps || true",
+    "link:check": "node scripts/link-check.mjs"
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.3.3",
