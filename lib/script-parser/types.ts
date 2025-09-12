@@ -16,3 +16,14 @@ export type ScriptJSON = {
   warnings?: string[];
 };
 
+// Alternate standardized shape with root-level aggregates
+export type StandardizedScript = {
+  title?: string;
+  authors?: string[];
+  scenes: Scene[];
+  characters: { name: string; firstAppearance?: string }[];
+  dialogue: { character: string; lines: string[]; sceneId: string }[];
+  actions: { text: string; sceneId: string }[];
+  transitions: { text: string; sceneId: string }[];
+  warnings?: string[];
+};
