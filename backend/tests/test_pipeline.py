@@ -12,6 +12,7 @@ def test_pipeline_steps_return_dicts():
     assert isinstance(p.step_market_adaptation({}, 'Mumbai', ['Disney+ Hotstar']), dict)
     assert isinstance(p.step_package_assembly({}), dict)
     assert isinstance(p.step_final_package({}), dict)
+    assert isinstance(p.step_visual_brief("urban drama in Mumbai"), dict)
 
 
 @pytest.mark.skipif(not os.getenv('SUPABASE_URL') or not os.getenv('SUPABASE_SERVICE_ROLE_KEY'), reason='Supabase env not set')

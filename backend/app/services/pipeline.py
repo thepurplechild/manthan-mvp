@@ -1,6 +1,7 @@
 """Orchestrates the 6-step packaging pipeline with persisted progress."""
 from typing import Dict, Any, List
 from .llm.providers import get_llm
+from .visual_assets import generate_visual_brief
 
 class Pipeline:
     def __init__(self, provider: str = "anthropic"):
@@ -25,4 +26,8 @@ class Pipeline:
 
     def step_final_package(self, meta: Dict[str, Any]) -> Dict[str, Any]:
         return {"document_url": None, "deck_url": None}
+
+    def step_visual_brief(self, description: str) -> Dict[str, Any]:
+        """Generate visual brief using AI images, templates, and stock photos."""
+        return generate_visual_brief(description)
 
