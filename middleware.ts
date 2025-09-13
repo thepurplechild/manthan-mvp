@@ -37,17 +37,17 @@ export async function middleware(request: NextRequest) {
   );
 
   const { data: { user } } = await supabase.auth.getUser();
+  const path = request.nextUrl.pathname;
 
-  // Protect creator routes (/dashboard, /projects)
-  if (request.nextUrl.pathname.startsWith('/dashboard') || 
-      request.nextUrl.pathname.startsWith('/projects')) {
+  // Protect core routes: /dashboard, /projects (all), /admin (all)
+  if (path.startsWith('/dashboard') || path.startsWith('/projects') || path.startsWith('/admin')) {
     if (!user) {
-      return NextResponse.redirect(new URL('/auth/login', request.url))
+      return NextResponse.redirect(new URL('/auth/login', request.url));
     }
   }
 
   // Protect founder routes (/founder)
-  if (request.nextUrl.pathname.startsWith('/founder')) {
+  if (path.startsWith('/founder')) {
     if (!user) {
       return NextResponse.redirect(new URL('/auth/login', request.url))
     }
@@ -65,9 +65,15 @@ export async function middleware(request: NextRequest) {
   }
 
   // Redirect authenticated users away from auth pages
-  if ((request.nextUrl.pathname.startsWith('/auth/login') || 
-       request.nextUrl.pathname.startsWith('/auth/signup')) && user) {
-    return NextResponse.redirect(new URL('/dashboard', request.url))
+  const authPages = [
+    '/auth/login',
+    '/auth/sign-up',
+    '/auth/forgot-password',
+    '/auth/update-password',
+    '/auth/sign-up-success',
+  ];
+  if (user && authPages.some(p => path.startsWith(p))) {
+    return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
   return response;

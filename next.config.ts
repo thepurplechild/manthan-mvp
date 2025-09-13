@@ -40,7 +40,14 @@ const nextConfig: NextConfig = {
     'mammoth',
     'yauzl',
     'fast-xml-parser',
-    'xml2js'
+    'xml2js',
+    '@anthropic-ai/sdk',
+    'officegen',
+    'pdf-lib',
+    'docx',
+    'pdfjs-dist',
+    'canvas',
+    'tesseract.js'
   ],
 };
 

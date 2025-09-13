@@ -72,6 +72,7 @@ export async function POST(req: NextRequest) {
     'script_preprocess',
     'core_extraction',
     'character_bible',
+    'visuals',
     'market_adaptation',
     'package_assembly',
     'final_package',

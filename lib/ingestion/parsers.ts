@@ -36,6 +36,7 @@ export interface ScriptScene {
   heading: string;
   action: string;
   dialogue: DialogueLine[];
+  transitions: string[];
   sceneNumber?: number;
   location?: string;
   timeOfDay?: string;
@@ -57,6 +58,97 @@ export interface ParseResult {
   warnings: IngestionWarning[];
 }
 
+
+/**
+ * Attempt OCR on a PDF buffer by rendering pages to images and
+ * running Tesseract on each page. Uses dynamic imports to avoid
+ * bundling issues on the client.
+ */
+async function ocrPdfBuffer(
+  buffer: Buffer,
+  progressCallback?: IngestionProgressCallback,
+  addWarning?: (w: IngestionWarning) => void
+): Promise<string> {
+  try {
+    // Dynamic imports so this stays server-only
+    const pdfjsLib: any = await import('pdfjs-dist/legacy/build/pdf.js');
+    const { createCanvas } = await import('canvas');
+    const Tesseract: any = await import('tesseract.js');
+
+    // Initialize PDF.js
+    // Worker is optional in Node; suppress workerSrc warnings
+    if (pdfjsLib.GlobalWorkerOptions) {
+      (pdfjsLib as any).GlobalWorkerOptions.workerSrc = undefined as any;
+    }
+
+    const loadingTask = pdfjsLib.getDocument({ data: buffer });
+    const pdf = await loadingTask.promise;
+
+    let ocrText = '';
+    const totalPages: number = pdf.numPages || 0;
+
+    for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+      progressCallback?.({
+        currentStep: `OCR: rendering page ${pageNum}/${totalPages}`,
+        progress: Math.min(60 + Math.floor((pageNum - 1) / Math.max(1, totalPages) * 30), 95),
+        details: 'Rendering page to image for OCR'
+      });
+
+      const page = await pdf.getPage(pageNum);
+      const scale = 2.0; // Higher scale for better OCR accuracy
+      const viewport = page.getViewport({ scale });
+      const canvas = createCanvas(viewport.width, viewport.height);
+      const ctx = canvas.getContext('2d');
+
+      const renderContext = {
+        canvasContext: ctx,
+        viewport,
+      };
+      await page.render(renderContext).promise;
+
+      const imgBuffer: Buffer = canvas.toBuffer('image/png');
+
+      progressCallback?.({
+        currentStep: `OCR: recognizing page ${pageNum}/${totalPages}`,
+        progress: Math.min(65 + Math.floor((pageNum - 1) / Math.max(1, totalPages) * 30), 98),
+        details: 'Running Tesseract OCR'
+      });
+
+      // Run Tesseract; default to English
+      const result = await Tesseract.recognize(imgBuffer, 'eng');
+      const pageText = (result && result.data && result.data.text) ? String(result.data.text) : '';
+
+      if (!pageText.trim()) {
+        addWarning?.({
+          type: 'partial_extraction',
+          message: `OCR produced little/no text for page ${pageNum}`,
+          severity: 'low',
+          suggestions: [
+            'Try increasing image resolution or contrast',
+            'Ensure the PDF page contains legible text'
+          ],
+          timestamp: new Date()
+        });
+      }
+
+      ocrText += `\n\n--- OCR Page ${pageNum} ---\n` + pageText.trim();
+    }
+
+    return ocrText.trim();
+  } catch (err) {
+    addWarning?.({
+      type: 'parsing_error',
+      message: 'OCR fallback failed while processing PDF pages',
+      severity: 'medium',
+      suggestions: [
+        'Verify OCR dependencies (pdfjs-dist, canvas, tesseract.js) are installed',
+        'Try a different PDF or export as images before upload'
+      ],
+      timestamp: new Date()
+    });
+    return '';
+  }
+}
 
 /**
  * Basic metadata extraction from text content
@@ -102,6 +194,50 @@ function extractBasicMetadata(
     language: 'en', // Default to English
     formatVersion: '1.0'
   };
+}
+
+// Transition detection helpers
+const TRANSITION_PATTERNS = [
+  'FADE IN:',
+  'FADE OUT.',
+  'FADE TO:',
+  'CUT TO:',
+  'DISSOLVE TO:',
+  'MATCH CUT',
+  'MATCH CUT TO:',
+  'SMASH CUT',
+  'SMASH CUT TO:',
+  'WIPE TO:',
+  'HARD CUT TO:',
+  'JUMP CUT TO:',
+  'CUTAWAY TO:'
+];
+
+function isTransitionLine(line: string): boolean {
+  const trimmed = line.trim();
+  if (!trimmed) return false;
+  for (const pat of TRANSITION_PATTERNS) {
+    if (trimmed.toUpperCase().startsWith(pat)) return true;
+  }
+  if (/^[A-Z\s]+TO:$/i.test(trimmed) && trimmed === trimmed.toUpperCase()) {
+    return true;
+  }
+  return false;
+}
+
+function normalizeTransition(line: string): string {
+  return line.trim().replace(/\s+/g, ' ').toUpperCase();
+}
+
+function extractTransitionsFromLines(lines: string[]): string[] {
+  const found: string[] = [];
+  for (const line of lines) {
+    if (isTransitionLine(line)) {
+      const t = normalizeTransition(line);
+      if (!found.includes(t)) found.push(t);
+    }
+  }
+  return found;
 }
 
 /**
@@ -157,8 +293,19 @@ export async function parseTextFile(
       details: `Extracted ${content.length} characters`
     });
 
+    // Extract transitions from plain text (best-effort)
+    const lines = content.split('\n');
+    const transitions = extractTransitionsFromLines(lines);
+
+    const structuredContent: StructuredScript | undefined = transitions.length > 0 ? {
+      type: 'structured_script',
+      scenes: [{ heading: 'DOCUMENT', action: '', dialogue: [], transitions, sceneNumber: 1 }],
+      metadata: { totalScenes: 1 }
+    } : undefined;
+
     return {
       textContent: content,
+      structuredContent,
       metadata,
       warnings
     };
@@ -194,21 +341,50 @@ export async function parsePdfFile(
       details: `Processing ${pdfData.numpages} pages`
     });
 
-    const content = pdfData.text;
+    let content = pdfData.text;
 
     // Check for empty content
-    if (!content || content.trim().length === 0) {
+    const hasMinimalText = !content || content.trim().length < 50;
+    if (hasMinimalText) {
       warnings.push({
         type: 'empty_content',
-        message: 'No text content could be extracted from the PDF',
+        message: 'No or minimal text extracted from the PDF; attempting OCR fallback',
         severity: 'high',
         suggestions: [
-          'Check if the PDF contains text (not just images)',
-          'Try using OCR if the PDF contains scanned images',
-          'Ensure the PDF is not password-protected or corrupted'
+          'PDF may be image-only (scanned). OCR will be attempted.',
+          'If OCR fails, try exporting pages as images and re-upload.'
         ],
         timestamp: new Date()
       });
+
+      // Attempt OCR fallback
+      const ocrText = await ocrPdfBuffer(
+        buffer,
+        progressCallback,
+        (w) => warnings.push(w)
+      );
+
+      if (ocrText && ocrText.trim().length > 0) {
+        content = (content || '').trim() ? `${content}\n\n${ocrText}` : ocrText;
+        warnings.push({
+          type: 'partial_extraction',
+          message: 'OCR fallback used to extract text from image-only PDF',
+          severity: 'medium',
+          suggestions: ['Review OCR text for accuracy; consider higher-resolution originals'],
+          timestamp: new Date()
+        });
+      } else {
+        warnings.push({
+          type: 'extraction_failed',
+          message: 'OCR fallback did not produce usable text',
+          severity: 'high',
+          suggestions: [
+            'Try re-scanning the document with better contrast',
+            'Use a PDF with embedded text if possible'
+          ],
+          timestamp: new Date()
+        });
+      }
     }
 
     // Check for potential password protection
@@ -252,8 +428,17 @@ export async function parsePdfFile(
       details: `Extracted text from ${pdfData.numpages} pages`
     });
 
+    // Extract transitions from PDF text for best-effort structured output
+    const transitions = extractTransitionsFromLines(content.split('\n'));
+    const structuredContent: StructuredScript | undefined = transitions.length > 0 ? {
+      type: 'structured_script',
+      scenes: [{ heading: 'DOCUMENT', action: '', dialogue: [], transitions, sceneNumber: 1 }],
+      metadata: { totalScenes: 1 }
+    } : undefined;
+
     return {
       textContent: content,
+      structuredContent,
       metadata,
       warnings
     };
@@ -308,6 +493,7 @@ export async function parseFinalDraftFile(
     let textContent = '';
     const scenes: ScriptScene[] = [];
     let currentScene: Partial<ScriptScene> | null = null;
+    const pendingTransitions: string[] = [];
     const characters: Set<string> = new Set();
 
     // Extract title page information
@@ -353,14 +539,27 @@ export async function parseFinalDraftFile(
               heading: text,
               action: '',
               dialogue: [],
+              transitions: [],
               location: extractLocation(text),
               timeOfDay: extractTimeOfDay(text)
             };
+            if (pendingTransitions.length > 0 && currentScene.transitions) {
+              for (const t of pendingTransitions) {
+                if (!currentScene.transitions.includes(t)) currentScene.transitions.push(t);
+              }
+              pendingTransitions.length = 0;
+            }
             break;
 
           case 'Action':
             if (currentScene) {
               currentScene.action += (currentScene.action ? '\n' : '') + text;
+              if (isTransitionLine(text)) {
+                const t = normalizeTransition(text);
+                if (currentScene.transitions && !currentScene.transitions.includes(t)) {
+                  currentScene.transitions.push(t);
+                }
+              }
             }
             break;
 
@@ -408,6 +607,7 @@ export async function parseFinalDraftFile(
       type: 'structured_script',
       scenes: scenes.map((scene, index) => ({
         ...scene,
+        transitions: scene.transitions || [],
         sceneNumber: index + 1
       })),
       metadata: {
@@ -551,8 +751,14 @@ export async function parseCeltxFile(
         currentScene = {
           heading: trimmed,
           action: '',
-          dialogue: []
+          dialogue: [],
+          transitions: []
         };
+      } else if (isTransitionLine(trimmed)) {
+        const t = normalizeTransition(trimmed);
+        if (currentScene && currentScene.transitions) {
+          if (!currentScene.transitions.includes(t)) currentScene.transitions.push(t);
+        }
       } else if (trimmed.match(/^[A-Z\s]{2,}$/) && trimmed.length < 50) {
         // Likely a character name
         characters.add(trimmed);
@@ -567,6 +773,7 @@ export async function parseCeltxFile(
       type: 'structured_script',
       scenes: scenes.map((scene, index) => ({
         ...scene,
+        transitions: scene.transitions || [],
         sceneNumber: index + 1
       })),
       metadata: {
@@ -715,8 +922,17 @@ export async function parseWordDocument(
       details: `Extracted ${textContent.length} characters`
     });
 
+    // Extract transitions (best-effort) and expose as a single scene
+    const transitions = extractTransitionsFromLines(textContent.split('\n'));
+    const structuredContent: StructuredScript | undefined = transitions.length > 0 ? {
+      type: 'structured_script',
+      scenes: [{ heading: 'DOCUMENT', action: '', dialogue: [], transitions, sceneNumber: 1 }],
+      metadata: { totalScenes: 1 }
+    } : undefined;
+
     return {
       textContent,
+      structuredContent,
       metadata,
       warnings
     };
@@ -977,4 +1193,14 @@ export async function parseFile(
     
     throw parseError;
   }
+          case 'Transition':
+            {
+              const t = normalizeTransition(text);
+              if (currentScene && currentScene.transitions) {
+                if (!currentScene.transitions.includes(t)) currentScene.transitions.push(t);
+              } else {
+                if (!pendingTransitions.includes(t)) pendingTransitions.push(t);
+              }
+            }
+            break;
 }
