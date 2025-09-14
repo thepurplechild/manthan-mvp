@@ -14,10 +14,13 @@
     "typecheck": "tsc --noEmit",
     "prepare": "husky install",
     "check:env": "ts-node --transpile-only scripts/check-env.ts",
-    "check:routes": "node scripts/check-routes.js"
+    "check:routes": "node scripts/check-routes.js",
+    "validate:config": "ts-node --transpile-only scripts/validate-config.ts",
+    "deploy:check": "npm run validate:config && npm run build"
   },
   "engines": {
-    "node": ">=18.17 <21"
+    "node": ">=18.17.0",
+    "npm": ">=8.19.0"
   },
   "_securityNotes": {
     "before": {
@@ -72,7 +75,9 @@
     "uuid": "^10.0.0",
     "xml2js": "^0.6.2",
     "yauzl": "^3.2.0",
-    "zod": "^3.23.8"
+    "zod": "^3.23.8",
+    "sharp": "^0.33.0",
+    "file-type": "^19.0.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
@@ -86,6 +91,7 @@
     "@types/uuid": "^10.0.0",
     "@types/xml2js": "^0.4.14",
     "@types/yauzl": "^2.10.3",
+    "@types/file-type": "^10.9.1",
     "autoprefixer": "^10.4.20",
     "eslint": "^9",
     "eslint-config-next": "15.3.1",

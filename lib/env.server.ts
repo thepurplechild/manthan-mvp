@@ -14,10 +14,79 @@ function parseNumberLike(input: unknown, fallback: number): number {
 }
 
 const ServerSchema = z.object({
-  ANTHROPIC_API_KEY: z.string().min(1, 'MISSING: ANTHROPIC_API_KEY'),
-  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, 'MISSING: SUPABASE_SERVICE_ROLE_KEY'),
-  FILE_MAX_SIZE_MB: z.union([z.string(), z.number()]).optional().default(25),
-  PIPELINE_MAX_TOKENS: z.union([z.string(), z.number()]).optional().default(120000),
+  // Required API Keys
+  ANTHROPIC_API_KEY: z.string()
+    .min(1, 'MISSING: ANTHROPIC_API_KEY')
+    .refine(key => key.startsWith('sk-ant-'), 'INVALID: ANTHROPIC_API_KEY must start with sk-ant-'),
+
+  SUPABASE_SERVICE_ROLE_KEY: z.string()
+    .min(1, 'MISSING: SUPABASE_SERVICE_ROLE_KEY')
+    .refine(key => key.startsWith('eyJ'), 'INVALID: SUPABASE_SERVICE_ROLE_KEY appears to be malformed'),
+
+  // File Processing Configuration
+  FILE_MAX_SIZE_MB: z.union([z.string(), z.number()])
+    .optional()
+    .default(25)
+    .transform(val => {
+      const parsed = parseNumberLike(val, 25)
+      if (parsed < 1 || parsed > 50) {
+        throw new Error('FILE_MAX_SIZE_MB must be between 1 and 50')
+      }
+      return parsed
+    }),
+
+  PIPELINE_MAX_TOKENS: z.union([z.string(), z.number()])
+    .optional()
+    .default(120000)
+    .transform(val => {
+      const parsed = parseNumberLike(val, 120000)
+      if (parsed < 10000 || parsed > 1000000) {
+        throw new Error('PIPELINE_MAX_TOKENS must be between 10,000 and 1,000,000')
+      }
+      return parsed
+    }),
+
+  FILE_PROCESSING_TIMEOUT: z.union([z.string(), z.number()])
+    .optional()
+    .default(25000)
+    .transform(val => {
+      const parsed = parseNumberLike(val, 25000)
+      if (parsed < 5000 || parsed > 300000) {
+        throw new Error('FILE_PROCESSING_TIMEOUT must be between 5,000ms (5s) and 300,000ms (5min)')
+      }
+      return parsed
+    }),
+
+  // Optional Configuration
+  LOG_LEVEL: z.enum(['error', 'warn', 'info', 'debug']).optional().default('info'),
+
+  ENABLE_FILE_SECURITY_SCAN: z.union([z.string(), z.boolean()])
+    .optional()
+    .default(false)
+    .transform(val => {
+      if (typeof val === 'boolean') return val
+      return val.toLowerCase() === 'true'
+    }),
+
+  ENABLE_PROCESSING_LOGS: z.union([z.string(), z.boolean()])
+    .optional()
+    .default(true)
+    .transform(val => {
+      if (typeof val === 'boolean') return val
+      return val.toLowerCase() === 'true'
+    }),
+
+  ENABLE_PERFORMANCE_MONITORING: z.union([z.string(), z.boolean()])
+    .optional()
+    .default(true)
+    .transform(val => {
+      if (typeof val === 'boolean') return val
+      return val.toLowerCase() === 'true'
+    }),
+
+  // Vercel specific
+  VERCEL_REGION: z.string().optional(),
+  NODE_ENV: z.enum(['development', 'production', 'test']).optional().default('development'),
 })
 
 function formatIssues(issues: z.ZodIssue[]): string {
@@ -34,15 +103,33 @@ export function getServerEnv() {
   const parsed = ServerSchema.safeParse(process.env)
   if (!parsed.success) {
     const formatted = formatIssues(parsed.error.issues)
-        console.error('[env:server] Missing/invalid environment variables:\n' + formatted)
+    console.error('[env:server] Missing/invalid environment variables:\n' + formatted)
+
+    // In development, provide helpful guidance
+    if (process.env.NODE_ENV === 'development') {
+      console.error('\n📝 Development Setup Guide:')
+      console.error('1. Copy .env.example to .env.local')
+      console.error('2. Fill in your actual API keys and configuration')
+      console.error('3. Restart your development server')
+      console.error('\n🔗 Get your keys from:')
+      console.error('- Anthropic: https://console.anthropic.com/')
+      console.error('- Supabase: https://supabase.com/dashboard/project/YOUR-PROJECT/settings/api')
+    }
+
     throw new Error('Environment validation failed:\n' + formatted)
   }
-  const raw = parsed.data
-  return {
-    ANTHROPIC_API_KEY: raw.ANTHROPIC_API_KEY,
-    SUPABASE_SERVICE_ROLE_KEY: raw.SUPABASE_SERVICE_ROLE_KEY,
-    FILE_MAX_SIZE_MB: parseNumberLike(raw.FILE_MAX_SIZE_MB, 25),
-    PIPELINE_MAX_TOKENS: parseNumberLike(raw.PIPELINE_MAX_TOKENS, 120000),
+
+  const env = parsed.data
+
+  // Log successful validation in development
+  if (process.env.NODE_ENV === 'development') {
+    console.log('✅ Server environment variables validated successfully')
+    console.log(`📁 File max size: ${env.FILE_MAX_SIZE_MB}MB`)
+    console.log(`🤖 Pipeline max tokens: ${env.PIPELINE_MAX_TOKENS.toLocaleString()}`)
+    console.log(`⏱️ Processing timeout: ${env.FILE_PROCESSING_TIMEOUT}ms`)
+    console.log(`📊 Logging level: ${env.LOG_LEVEL}`)
   }
+
+  return env
 }
 
