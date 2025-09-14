@@ -1,4 +1,6 @@
 import type { NextConfig } from "next";
+// Validate environment at boot time
+import './lib/env'
 
 const nextConfig: NextConfig = {
   eslint: {
@@ -44,10 +46,14 @@ const nextConfig: NextConfig = {
     '@anthropic-ai/sdk',
     'officegen',
     'pdf-lib',
+    'jspdf',
     'docx',
     'pdfjs-dist',
     'canvas',
-    'tesseract.js'
+    'tesseract.js',
+    'pptxgenjs',
+    '@react-pdf/renderer',
+    'react-pdf'
   ],
 };
 

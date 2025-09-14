@@ -1,0 +1,38 @@
+import Anthropic from '@anthropic-ai/sdk'
+import pRetry, { AbortError } from 'p-retry'
+import { env } from '@/lib/env'
+
+export const anthropic = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY })
+
+export type ClaudeResult = { text: string }
+
+export async function callClaudeSafe(prompt: string, system?: string, maxTokens = 1500): Promise<ClaudeResult> {
+  return pRetry(async () => {
+    try {
+      const msg = await anthropic.messages.create({
+        model: env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20240620',
+        max_tokens: Math.max(256, Math.min(2000, maxTokens)),
+        temperature: 0.2,
+        system: system || 'You are a precise assistant. Respond in strict JSON when asked.',
+        messages: [{ role: 'user', content: prompt }],
+      })
+      const parts = (msg?.content || []).map((c: any) => (c.type === 'text' ? c.text : '')).filter(Boolean)
+      return { text: parts.join('\n').trim() }
+    } catch (err: any) {
+      const status = err?.status || err?.response?.status
+      if (status && status >= 400 && status < 500 && status !== 429) {
+        throw new AbortError(err)
+      }
+      throw err
+    }
+  }, { retries: 3, factor: 2, minTimeout: 300, maxTimeout: 1500 })
+}
+
+export function safeParseJSON<T = any>(text: string): T | null {
+  try { return JSON.parse(text) as T } catch {
+    const match = text.match(/\{[\s\S]*\}$/)
+    if (match) { try { return JSON.parse(match[0]) as T } catch {} }
+    return null
+  }
+}
+
