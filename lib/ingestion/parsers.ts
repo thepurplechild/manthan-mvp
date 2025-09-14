@@ -19,6 +19,39 @@ import {
 } from './types';
 import { logger } from './logger';
 
+// PDF.js safe dynamic loader (modern entry points)
+type PdfjsLib = {
+  GlobalWorkerOptions?: { workerSrc?: string };
+  getDocument: (options: { data: Buffer | Uint8Array | ArrayBuffer; isEvalSupported?: boolean; useSystemFonts?: boolean }) => { promise: Promise<PDFDocument> };
+  setPDFNetworkStreamFactory?: (x: unknown) => void;
+};
+
+let _pdfjsLib: unknown | null = null;
+async function loadPdfjs() {
+  if (_pdfjsLib) return _pdfjsLib as PdfjsLib;
+  const pdfjs = await import('pdfjs-dist/build/pdf.min.mjs') as unknown as PdfjsLib;
+  const isBrowser = typeof window !== 'undefined' && typeof document !== 'undefined';
+  if (isBrowser) {
+    try {
+      const workerSrc = (await import('pdfjs-dist/build/pdf.worker.min.mjs')).default as string;
+      if (pdfjs?.GlobalWorkerOptions) {
+        pdfjs.GlobalWorkerOptions.workerSrc = workerSrc;
+      }
+    } catch {
+      if (pdfjs?.GlobalWorkerOptions) {
+        pdfjs.GlobalWorkerOptions.workerSrc = '';
+      }
+    }
+  } else {
+    if (pdfjs?.GlobalWorkerOptions) {
+      pdfjs.GlobalWorkerOptions.workerSrc = '';
+    }
+    try { pdfjs.setPDFNetworkStreamFactory?.(null); } catch {}
+  }
+  _pdfjsLib = pdfjs;
+  return pdfjs as PdfjsLib;
+}
+
 // Type definitions for external libraries
 interface PDFDocument {
   numPages: number;
@@ -116,10 +149,7 @@ async function ocrPdfBuffer(
 
   try {
     // Dynamic imports so this stays server-only
-    const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.js') as {
-      getDocument: (options: { data: Buffer }) => { promise: Promise<PDFDocument> };
-      GlobalWorkerOptions?: { workerSrc?: string | undefined };
-    };
+    const pdfjsLib = await loadPdfjs();
     
     // Import node-canvas with proper typing for server environment
     const { createCanvas } = await import('canvas') as {
@@ -130,13 +160,8 @@ async function ocrPdfBuffer(
       recognize: (image: Buffer, lang: string) => Promise<{ data: { text: string } }>;
     };
 
-    // Initialize PDF.js
-    // Worker is optional in Node; suppress workerSrc warnings
-    if (pdfjsLib.GlobalWorkerOptions) {
-      pdfjsLib.GlobalWorkerOptions.workerSrc = undefined;
-    }
-
-    const loadingTask = pdfjsLib.getDocument({ data: buffer });
+    // Initialize PDF.js via loader (worker handled there)
+    const loadingTask = pdfjsLib.getDocument({ data: buffer, isEvalSupported: false, useSystemFonts: false });
     const pdf = await loadingTask.promise;
 
     let ocrText = '';

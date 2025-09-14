@@ -15,6 +15,7 @@
     "jsx": "preserve",
     "incremental": true,
     "useUnknownInCatchVariables": true,
+    "typeRoots": ["./types", "./node_modules/@types"],
     "plugins": [
       {
         "name": "next"
