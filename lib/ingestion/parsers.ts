@@ -27,12 +27,25 @@ interface PDFDocument {
 
 interface PDFPage {
   getViewport: (options: { scale: number }) => PDFViewport;
-  render: (context: { canvasContext: CanvasRenderingContext2D; viewport: PDFViewport }) => { promise: Promise<void> };
+  render: (context: { canvasContext: unknown; viewport: PDFViewport }) => { promise: Promise<void> };
 }
 
 interface PDFViewport {
   width: number;
   height: number;
+}
+
+// Node Canvas types for server-side rendering
+interface NodeCanvas {
+  getContext(contextId: '2d'): NodeCanvasRenderingContext2D;
+  toBuffer(mimeType?: string): Buffer;
+  width: number;
+  height: number;
+}
+
+interface NodeCanvasRenderingContext2D {
+  canvas: NodeCanvas;
+  // Add other context methods as needed
 }
 
 // Structured screenplay format
@@ -79,18 +92,40 @@ export interface ParseResult {
  * running Tesseract on each page. Uses dynamic imports to avoid
  * bundling issues on the client.
  */
+// Environment check helper
+function isServerEnvironment(): boolean {
+  return typeof window === 'undefined' && typeof global !== 'undefined';
+}
+
 async function ocrPdfBuffer(
   buffer: Buffer,
   progressCallback?: IngestionProgressCallback,
   addWarning?: (w: IngestionWarning) => void
 ): Promise<string> {
+  // Ensure this runs only on server
+  if (!isServerEnvironment()) {
+    addWarning?.({
+      type: 'format_compatibility',
+      message: 'OCR processing is only available on server environment',
+      severity: 'high',
+      suggestions: ['File processing should occur on the server side'],
+      timestamp: new Date()
+    });
+    return '';
+  }
+
   try {
     // Dynamic imports so this stays server-only
     const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.js') as {
       getDocument: (options: { data: Buffer }) => { promise: Promise<PDFDocument> };
       GlobalWorkerOptions?: { workerSrc?: string | undefined };
     };
-    const { createCanvas } = await import('canvas');
+    
+    // Import node-canvas with proper typing for server environment
+    const { createCanvas } = await import('canvas') as {
+      createCanvas: (width: number, height: number) => NodeCanvas;
+    };
+    
     const Tesseract = await import('tesseract.js') as {
       recognize: (image: Buffer, lang: string) => Promise<{ data: { text: string } }>;
     };
@@ -117,15 +152,28 @@ async function ocrPdfBuffer(
       const page = await pdf.getPage(pageNum);
       const scale = 2.0; // Higher scale for better OCR accuracy
       const viewport = page.getViewport({ scale });
+      
+      // Create canvas with proper typing for server environment
       const canvas = createCanvas(viewport.width, viewport.height);
       const ctx = canvas.getContext('2d');
-
+      
+      // Validate canvas context was created successfully
+      if (!ctx) {
+        throw new Error(`Failed to create canvas context for page ${pageNum}`);
+      }
+      
+      // Type assertion for PDF.js compatibility
+      // PDF.js expects a canvas context but doesn't care about the specific type
+      // We use 'as unknown' to bridge between node-canvas and PDF.js types
       const renderContext = {
-        canvasContext: ctx,
+        canvasContext: ctx as unknown,
         viewport,
       };
+      
+      // Render PDF page to canvas
       await page.render(renderContext).promise;
 
+      // Generate buffer from node-canvas
       const imgBuffer: Buffer = canvas.toBuffer('image/png');
 
       progressCallback?.({
@@ -674,7 +722,7 @@ export async function parseFinalDraftFile(
     metadata.custom = {
       sceneCount: scenes.length,
       characterCount: characters.size,
-      fdxVersion: fdxDocument.$.Version || 'unknown'
+      fdxVersion: fdxDocument.$?.Version || 'unknown'
     };
 
     progressCallback?.({
