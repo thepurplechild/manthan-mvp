@@ -11,6 +11,7 @@ const Body = z.object({
   ingestionId: z.string().optional(),
   projectId: z.string().optional(),
   forceReprocess: z.boolean().optional(),
+  options: z.object({ targetPlatform: z.string().optional(), tone: z.string().optional() }).optional(),
 })
 
 async function updateStep(supabase: any, ingestionId: string, name: string, patch: any) {
@@ -59,6 +60,10 @@ export async function POST(req: NextRequest) {
     try {
       const res = await fn()
       await updateStep(supabase, ingestion.id, name, { status: 'succeeded', finished_at: new Date().toISOString(), output: res as any })
+      // Persist step output for project history
+      if (ingestion.project_id) {
+        await supabase.from('generated_content').insert({ project_id: ingestion.project_id, step: name, payload: res as any })
+      }
       return res
     } catch (err: any) {
       await updateStep(supabase, ingestion.id, name, { status: 'failed', finished_at: new Date().toISOString(), error: String(err?.message || err) })
@@ -76,7 +81,7 @@ export async function POST(req: NextRequest) {
     await supabase.from('ingestions').update({ progress: 45 }).eq('id', ingestion.id)
 
     // c) Market Adaptation
-    const market: MarketAdaptation = await run('market_adaptation', () => stepMarketAdaptation(core, characters))
+    const market: MarketAdaptation = await run('market_adaptation', () => stepMarketAdaptation(core, characters, body.data.options))
     await supabase.from('ingestions').update({ progress: 60 }).eq('id', ingestion.id)
 
     // d) Pitch Deck Content
@@ -90,6 +95,11 @@ export async function POST(req: NextRequest) {
     // f) Document Assembly trigger (client can call /api/generate-documents)
     await updateStep(supabase, ingestion.id, 'final_package', { status: 'queued', output: { ready: true, core, characters, market, pitch, visuals } })
     await supabase.from('ingestions').update({ status: 'succeeded', progress: 95 }).eq('id', ingestion.id)
+    // Update project rollups
+    if (ingestion.project_id) {
+      const quality = computeQualityScore(core, characters)
+      await supabase.from('projects').update({ processing_status: 'completed', quality_score: quality, last_run_at: new Date().toISOString() }).eq('id', ingestion.project_id)
+    }
 
     return NextResponse.json({ ok: true, ingestionId: ingestion.id, results: { core, characters, market, pitch, visuals } })
   } catch (e: any) {
@@ -98,3 +108,12 @@ export async function POST(req: NextRequest) {
   }
 }
 
+function computeQualityScore(core: CoreElements, chars: CharactersResult): number {
+  let score = 0
+  if (core.logline && core.logline.length > 20) score += 0.3
+  if (core.synopsis && core.synopsis.length > 200) score += 0.3
+  if (chars.characters && chars.characters.length >= 3) score += 0.2
+  if (core.themes && core.themes.length > 0) score += 0.1
+  if (core.genres && core.genres.length > 0) score += 0.1
+  return Math.min(1, Number(score.toFixed(2)))
+}

@@ -21,8 +21,8 @@ export async function stepGenerateCharacters(core: CoreElements): Promise<Charac
   return CharactersSchema.parse(parsed)
 }
 
-export async function stepMarketAdaptation(core: CoreElements, chars: CharactersResult): Promise<MarketAdaptation> {
-  const { prompt, system } = buildMarketPrompt(core, chars)
+export async function stepMarketAdaptation(core: CoreElements, chars: CharactersResult, overrides?: { targetPlatform?: string; tone?: string }): Promise<MarketAdaptation> {
+  const { prompt, system } = buildMarketPrompt(core, chars, overrides)
   const { text } = await callClaudeSafe(prompt, system, 1500)
   const parsed = safeParseJSON(text) || {}
   return MarketSchema.parse(parsed)
@@ -41,4 +41,3 @@ export async function stepVisualConcepts(core: CoreElements, chars: CharactersRe
   const parsed = safeParseJSON(text) || {}
   return VisualsSchema.parse(parsed)
 }
-
