@@ -1,11 +1,38 @@
 'use client'
 
 import { useState } from 'react'
-import { IngestionResult, IngestionProgress } from '@/lib/ingestion/types'
+import { IngestionResult, IngestionProgress, IngestionErrorType } from '@/lib/ingestion/types'
+
+// New response format from updated API
+interface ProcessingResult {
+  success: boolean
+  jobId?: string
+  filename?: string
+  fileSize?: number
+  contentPreview?: string
+  metadata?: {
+    pageCount?: number
+    author?: string
+    creationDate?: string
+    wordCount?: number
+    charCount?: number
+    contentType?: string
+    language?: string
+  }
+  processingTime?: string
+  ingestionId?: string
+  result?: IngestionResult
+  error?: {
+    type: string
+    message: string
+    suggestions?: string[]
+  }
+}
 
 export default function IngestionTestPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [result, setResult] = useState<IngestionResult | null>(null)
+  const [processingResult, setProcessingResult] = useState<ProcessingResult | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
   const [progress, setProgress] = useState<IngestionProgress | null>(null)
   const [logs, setLogs] = useState<string[]>([])
@@ -19,6 +46,7 @@ export default function IngestionTestPage() {
     if (file) {
       setSelectedFile(file)
       setResult(null)
+      setProcessingResult(null)
       setProgress(null)
       setLogs([])
       addLog(`File selected: ${file.name} (${Math.round(file.size / 1024)} KB)`)
@@ -30,6 +58,7 @@ export default function IngestionTestPage() {
 
     setIsProcessing(true)
     setResult(null)
+    setProcessingResult(null)
     setProgress(null)
     addLog('Starting ingestion process...')
 
@@ -44,42 +73,74 @@ export default function IngestionTestPage() {
 
       addLog(`Sending file to API: ${selectedFile.name} (${Math.round(selectedFile.size / 1024)} KB)`)
 
+      const startTime = Date.now()
+
       // Call the ingestion API
       const response = await fetch('/api/ingest', {
         method: 'POST',
         body: formData,
       })
 
-      const apiResult = await response.json()
-      
+      const requestTime = Date.now() - startTime
+      addLog(`📡 API response received in ${requestTime}ms`)
+
+      const apiResult: ProcessingResult = await response.json()
+      setProcessingResult(apiResult)
+
       if (apiResult.success) {
-        setResult(apiResult.result)
-        addLog('✅ Ingestion completed successfully!')
+        setResult(apiResult.result || null)
+        addLog(`✅ Processing completed successfully!`)
+        addLog(`📊 Content preview: ${apiResult.contentPreview?.substring(0, 100)}...`)
+        addLog(`⏱️ Processing time: ${apiResult.processingTime}`)
+        if (apiResult.metadata?.wordCount) {
+          addLog(`📝 Word count: ${apiResult.metadata.wordCount}`)
+        }
+        if (apiResult.metadata?.pageCount) {
+          addLog(`📄 Page count: ${apiResult.metadata.pageCount}`)
+        }
       } else {
-        // Create a mock failed result for display
+        // Create a mock failed result for backward compatibility
         const failedResult: IngestionResult = {
           ingestionId: apiResult.ingestionId || 'unknown',
           content: null,
           warnings: [],
-          error: apiResult.error || { type: 'unknown_error', message: 'Unknown error', timestamp: new Date(), retryable: false },
+          error: apiResult.error ? {
+            type: apiResult.error.type as IngestionErrorType,
+            message: apiResult.error.message,
+            timestamp: new Date(),
+            retryable: true,
+            suggestions: apiResult.error.suggestions
+          } : { type: 'unknown_error' as IngestionErrorType, message: 'Unknown error', timestamp: new Date(), retryable: false },
           success: false,
-          processingTime: 0,
+          processingTime: requestTime,
           startedAt: new Date(),
           completedAt: new Date()
         }
         setResult(failedResult)
-        addLog(`❌ Ingestion failed: ${apiResult.error?.message || 'Unknown error'}`)
+        addLog(`❌ Processing failed: ${apiResult.error?.message || 'Unknown error'}`)
       }
 
     } catch (error) {
       addLog(`❌ API Error: ${error instanceof Error ? error.message : 'Unknown error'}`)
-      // Create a mock error result
-      const errorResult: IngestionResult = {
+
+      // Create error result for both new and old format
+      const errorResult: ProcessingResult = {
+        success: false,
+        error: {
+          type: 'network_error',
+          message: error instanceof Error ? error.message : 'Network error occurred',
+          suggestions: ['Check your internet connection', 'Try again in a moment']
+        }
+      }
+      setProcessingResult(errorResult)
+
+      // Legacy format for backward compatibility
+      const legacyErrorResult: IngestionResult = {
         ingestionId: 'error',
         content: null,
         warnings: [],
-        error: { 
-          type: 'network_error', 
+        error: {
+          type: 'network_error',
           message: error instanceof Error ? error.message : 'Network error occurred',
           timestamp: new Date(),
           retryable: true
@@ -89,7 +150,7 @@ export default function IngestionTestPage() {
         startedAt: new Date(),
         completedAt: new Date()
       }
-      setResult(errorResult)
+      setResult(legacyErrorResult)
     } finally {
       setIsProcessing(false)
       setProgress(null)
@@ -101,6 +162,7 @@ export default function IngestionTestPage() {
     const file = new File([blob], filename, { type: 'text/plain' })
     setSelectedFile(file)
     setResult(null)
+    setProcessingResult(null)
     setProgress(null)
     setLogs([])
     addLog(`Test file created: ${filename}`)
@@ -233,7 +295,90 @@ export default function IngestionTestPage() {
           </div>
         </div>
 
-        {/* Results */}
+        {/* New Processing Results */}
+        {processingResult && (
+          <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 mb-8">
+            <h2 className="text-2xl font-semibold text-white mb-4">
+              Processing Results
+              <span className={`ml-2 text-sm px-2 py-1 rounded ${
+                processingResult.success ? 'bg-green-600' : 'bg-red-600'
+              }`}>
+                {processingResult.success ? 'SUCCESS' : 'FAILED'}
+              </span>
+            </h2>
+
+            {processingResult.success ? (
+              <div className="space-y-6">
+                {/* Summary Cards */}
+                <div className="grid md:grid-cols-3 gap-4">
+                  <div className="bg-black/20 rounded-lg p-4">
+                    <h3 className="text-purple-300 font-semibold">File Info</h3>
+                    <p className="text-white/80 text-sm">📁 {processingResult.filename}</p>
+                    <p className="text-white/80 text-sm">📏 {Math.round((processingResult.fileSize || 0) / 1024)} KB</p>
+                    <p className="text-white/80 text-sm">⏱️ {processingResult.processingTime}</p>
+                  </div>
+
+                  <div className="bg-black/20 rounded-lg p-4">
+                    <h3 className="text-purple-300 font-semibold">Content Stats</h3>
+                    <p className="text-white/80 text-sm">📝 {processingResult.metadata?.wordCount || 0} words</p>
+                    <p className="text-white/80 text-sm">📄 {processingResult.metadata?.pageCount || 0} pages</p>
+                    <p className="text-white/80 text-sm">🔤 {processingResult.metadata?.charCount || 0} chars</p>
+                  </div>
+
+                  <div className="bg-black/20 rounded-lg p-4">
+                    <h3 className="text-purple-300 font-semibold">Document Info</h3>
+                    <p className="text-white/80 text-sm">📋 {processingResult.metadata?.contentType || 'Unknown'}</p>
+                    {processingResult.metadata?.author && (
+                      <p className="text-white/80 text-sm">✍️ {processingResult.metadata.author}</p>
+                    )}
+                    {processingResult.metadata?.language && (
+                      <p className="text-white/80 text-sm">🌐 {processingResult.metadata.language}</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Content Preview */}
+                {processingResult.contentPreview && (
+                  <div>
+                    <h3 className="text-white font-medium mb-2">Content Preview:</h3>
+                    <div className="bg-black/20 rounded-lg p-4">
+                      <div className="bg-black/30 rounded p-3 max-h-48 overflow-y-auto">
+                        <pre className="text-white/80 text-sm whitespace-pre-wrap">
+                          {processingResult.contentPreview}
+                        </pre>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Job ID and Technical Details */}
+                <div className="bg-black/20 rounded-lg p-4">
+                  <h3 className="text-white font-medium mb-2">Technical Details:</h3>
+                  <p className="text-white/70 text-sm">Job ID: <code className="text-purple-300">{processingResult.jobId}</code></p>
+                  <p className="text-white/70 text-sm">Ingestion ID: <code className="text-purple-300">{processingResult.ingestionId}</code></p>
+                </div>
+              </div>
+            ) : (
+              /* Error Display */
+              <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-4">
+                <h3 className="text-red-300 font-medium mb-2">Processing Error:</h3>
+                <p className="text-white/80 mb-2">{processingResult.error?.message}</p>
+                {processingResult.error?.suggestions && processingResult.error.suggestions.length > 0 && (
+                  <div>
+                    <p className="text-white/70 text-sm font-medium mb-1">Suggestions:</p>
+                    <ul className="text-white/60 text-sm list-disc list-inside space-y-1">
+                      {processingResult.error.suggestions.map((suggestion, index) => (
+                        <li key={index}>{suggestion}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Legacy Results (for backward compatibility) */}
         {result && (
           <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
             <h2 className="text-2xl font-semibold text-white mb-4">

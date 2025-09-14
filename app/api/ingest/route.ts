@@ -7,13 +7,22 @@ import { IngestionResult, IngestionOptions } from '@/lib/ingestion/types';
  */
 interface IngestionApiResponse {
   success: true;
+  jobId: string;
+  filename: string;
+  fileSize: number;
+  contentPreview: string;
+  metadata: {
+    pageCount?: number;
+    author?: string;
+    creationDate?: string;
+    wordCount?: number;
+    charCount?: number;
+    contentType?: string;
+    language?: string;
+  };
+  processingTime: string;
   ingestionId: string;
   result: IngestionResult;
-  debugInfo: {
-    processingTime: number;
-    memoryUsage: NodeJS.MemoryUsage;
-    timestamp: string;
-  };
 }
 
 interface IngestionApiError {
@@ -48,6 +57,62 @@ const corsHeaders = {
  */
 function getMemoryUsage(): NodeJS.MemoryUsage {
   return process.memoryUsage();
+}
+
+/**
+ * Create content preview (first 500 characters)
+ */
+function createContentPreview(content: string): string {
+  if (!content || content.length === 0) {
+    return 'No text content extracted from file.';
+  }
+
+  const cleanedContent = content
+    .replace(/\s+/g, ' ') // Normalize whitespace
+    .trim();
+
+  if (cleanedContent.length <= 500) {
+    return cleanedContent;
+  }
+
+  // Find the last complete word within 500 characters
+  const truncated = cleanedContent.substring(0, 500);
+  const lastSpaceIndex = truncated.lastIndexOf(' ');
+
+  if (lastSpaceIndex > 400) { // Only break at word boundary if it's not too short
+    return truncated.substring(0, lastSpaceIndex) + '...';
+  }
+
+  return truncated + '...';
+}
+
+/**
+ * Format processing time to human-readable string
+ */
+function formatProcessingTime(milliseconds: number): string {
+  if (milliseconds < 1000) {
+    return `${milliseconds}ms`;
+  } else if (milliseconds < 60000) {
+    return `${(milliseconds / 1000).toFixed(1)}s`;
+  } else {
+    const minutes = Math.floor(milliseconds / 60000);
+    const seconds = ((milliseconds % 60000) / 1000).toFixed(0);
+    return `${minutes}m ${seconds}s`;
+  }
+}
+
+/**
+ * Clean up temporary files
+ */
+async function cleanupTempFile(filePath: string): Promise<void> {
+  try {
+    const fs = await import('fs');
+    await fs.promises.unlink(filePath);
+    console.log(`[cleanup] Successfully deleted temporary file: ${filePath}`);
+  } catch (error) {
+    // Log but don't throw - cleanup failures shouldn't break the response
+    console.warn(`[cleanup] Failed to delete temporary file ${filePath}:`, error);
+  }
 }
 
 /**
@@ -444,23 +509,44 @@ export async function POST(request: NextRequest): Promise<NextResponse<Ingestion
     const processingTime = Date.now() - startTime;
     const finalMemoryUsage = getMemoryUsage();
 
-    logStep(currentStep, {
+    // Create content preview and extract metadata
+    const textContent = ingestionResult.content?.textContent || '';
+    const contentPreview = createContentPreview(textContent);
+    const ingestionMetadata = ingestionResult.content?.metadata || {};
+
+    // Step 12: File cleanup (if applicable)
+    currentStep = '13-CLEANUP';
+    // Note: In this synchronous version, files are processed from buffer directly
+    // No temporary files need cleanup as we're not using /tmp storage
+    logStep(currentStep, { message: 'No temporary files to clean up (buffer processing)' });
+
+    logStep('12-SUCCESS', {
       message: 'Ingestion completed successfully',
       processingTime,
-      contentLength: ingestionResult.content?.textContent?.length || 0,
-      memoryUsageMB: Math.round(finalMemoryUsage.heapUsed / 1024 / 1024)
+      contentLength: textContent.length,
+      memoryUsageMB: Math.round(finalMemoryUsage.heapUsed / 1024 / 1024),
+      previewLength: contentPreview.length
     });
 
     return NextResponse.json<IngestionApiResponse>(
       {
         success: true,
+        jobId: ingestionResult.ingestionId,
+        filename: file.name,
+        fileSize: file.size,
+        contentPreview,
+        metadata: {
+          pageCount: ingestionMetadata.pageCount,
+          author: ingestionMetadata.author,
+          creationDate: ingestionMetadata.createdDate ? new Date(ingestionMetadata.createdDate).toISOString() : undefined,
+          wordCount: ingestionMetadata.wordCount,
+          charCount: ingestionMetadata.charCount,
+          contentType: ingestionResult.content?.contentType,
+          language: ingestionMetadata.language
+        },
+        processingTime: formatProcessingTime(processingTime),
         ingestionId: ingestionResult.ingestionId,
-        result: ingestionResult,
-        debugInfo: {
-          processingTime,
-          memoryUsage: finalMemoryUsage,
-          timestamp: new Date().toISOString()
-        }
+        result: ingestionResult
       },
       {
         status: 200,
