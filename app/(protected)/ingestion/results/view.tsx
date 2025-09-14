@@ -6,7 +6,7 @@ import { StepCard } from '@/components/pipeline/StepCard'
 import { ErrorToast } from '@/components/pipeline/ErrorToast'
 
 export default function ClientView({ projectId }: { projectId: string }) {
-  const { state, loading, error, retry, getSignedUrl } = usePipelineProgress(projectId)
+  const { state, error, retry, getSignedUrl } = usePipelineProgress(projectId)
 
   const steps = useMemo(() => {
     const map: Record<string, string> = {

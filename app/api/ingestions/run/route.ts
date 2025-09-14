@@ -38,11 +38,27 @@ export async function POST(req: NextRequest) {
   // Update status running
   await supabase.from('ingestions').update({ status: 'running', progress: 5 }).eq('id', ingestion_id)
 
-  const updateStep = async (name: StepName, status: 'running'|'succeeded'|'failed', output?: any, err?: string) => {
-    const patch: any = { status }
-    if (status === 'running') patch.started_at = new Date().toISOString()
-    if (status === 'succeeded') patch.finished_at = new Date().toISOString(), patch.output = output || {}
-    if (status === 'failed') patch.finished_at = new Date().toISOString(), patch.error = err || 'failed'
+  interface StepPatch {
+    status: 'running' | 'succeeded' | 'failed';
+    started_at?: string;
+    finished_at?: string;
+    output?: Record<string, unknown>;
+    error?: string;
+  }
+
+  const updateStep = async (name: StepName, status: 'running'|'succeeded'|'failed', output?: Record<string, unknown>, err?: string) => {
+    const patch: StepPatch = { status }
+    if (status === 'running') {
+      patch.started_at = new Date().toISOString()
+    }
+    if (status === 'succeeded') {
+      patch.finished_at = new Date().toISOString()
+      patch.output = output || {}
+    }
+    if (status === 'failed') {
+      patch.finished_at = new Date().toISOString()
+      patch.error = err || 'failed'
+    }
     await supabase.from('ingestion_steps').update(patch).eq('ingestion_id', ingestion_id).eq('name', name)
   }
 
@@ -74,7 +90,16 @@ export async function POST(req: NextRequest) {
     await setProgress(25)
 
     await updateStep('core_extraction','running')
-    let core: any
+    interface CoreData {
+      logline: string;
+      synopsis: string;
+      themes: string[];
+      characters: Array<{ name: string; description?: string }>;
+      genres?: string[];
+      title?: string;
+      [key: string]: unknown;
+    }
+    let core: CoreData
     try {
       if (process.env.ANTHROPIC_API_KEY) {
         const scriptText = res.content?.textContent || ''
@@ -94,9 +119,10 @@ export async function POST(req: NextRequest) {
         }
       }
       await updateStep('core_extraction','succeeded', core)
-    } catch (err: any) {
+    } catch (err: unknown) {
       // On error, persist failure but continue with stub to keep pipeline moving
-      await updateStep('core_extraction','failed', undefined, String(err?.message || err))
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      await updateStep('core_extraction','failed', undefined, errorMessage)
       core = {
         logline: res.content?.metadata.title ? `${res.content?.metadata.title} — a compelling story` : 'A compelling story',
         synopsis: (res.content?.textContent || '').slice(0, 1200),
@@ -108,7 +134,18 @@ export async function POST(req: NextRequest) {
     await setProgress(45)
 
     await updateStep('character_bible','running')
-    let bible: any = null
+    interface BibleData {
+      characters: Array<{
+        name: string;
+        motivations?: string[];
+        conflicts?: string[];
+        relationships?: string[];
+        arc?: string;
+        cultural_context?: string;
+      }>;
+      [key: string]: unknown;
+    }
+    let bible: BibleData | null = null
     try {
       if (process.env.ANTHROPIC_API_KEY) {
         const prompt2 = `Using the following core elements JSON, generate a CHARACTER_BIBLE as strict JSON with keys: characters (array of objects each with name, motivations, conflicts, relationships (array), arc, cultural_context). Respond ONLY with JSON.\n\nCORE_ELEMENTS_JSON:\n${JSON.stringify(core)}`
@@ -146,11 +183,12 @@ export async function POST(req: NextRequest) {
         await supabase.storage.from('generated-assets').upload(pdfDeckPath, pdfBuf, { contentType: 'application/pdf', upsert: true })
         await supabase.storage.from('generated-assets').upload(pptxDeckPath, pptxBuf, { contentType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation', upsert: true })
         await supabase.storage.from('generated-assets').upload(docxSummaryPath, docxBuf, { contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', upsert: true })
-      } catch (genErr: any) {
+      } catch {
         // Non-fatal: continue pipeline
       }
-    } catch (err: any) {
-      await updateStep('character_bible','failed', undefined, String(err?.message || err))
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      await updateStep('character_bible','failed', undefined, errorMessage)
       bible = { characters: [{ name: 'Protagonist', arc: 'from doubt to purpose' }] }
       await updateStep('character_bible','succeeded', bible)
     }
@@ -161,15 +199,17 @@ export async function POST(req: NextRequest) {
     try {
       // Re-parse to get structured scenes (best-effort)
       const ext = (path.split('.').pop() || '').toLowerCase()
-      const fileType = (ext.startsWith('p') ? `.p${ext.slice(1)}` : `.${ext}`) as any // naive ensure dot
+      type SupportedFileType = '.txt' | '.pdf' | '.fdx' | '.celtx' | '.docx' | '.pptx' | '.ppt';
+      const fileType = (ext.startsWith('p') ? `.p${ext.slice(1)}` : `.${ext}`) as SupportedFileType
       const parsed = await parseFile(path.split('/').pop() || 'script', buffer, fileType)
-      const brief = generateVisualBrief(parsed.structuredContent as any)
+      const brief = generateVisualBrief(parsed.structuredContent || null)
       // Optionally call image API (mock)
       const generated = await maybeGenerateImages(brief.scenes.flatMap(s => s.prompts.slice(0, 1)))
       const visualsOut = { brief, generated }
       await updateStep('visuals','succeeded', visualsOut)
-    } catch (vErr: any) {
-      await updateStep('visuals','failed', undefined, String(vErr?.message || vErr))
+    } catch (vErr: unknown) {
+      const errorMessage = vErr instanceof Error ? vErr.message : String(vErr);
+      await updateStep('visuals','failed', undefined, errorMessage)
       await updateStep('visuals','succeeded', { brief: { scenes: [] }, generated: [] })
     }
 
@@ -191,7 +231,11 @@ export async function POST(req: NextRequest) {
     const artifactPath = `generated-assets/${ingestion.user_id}/${ingestion_id}/summary.json`
     await supabase.storage.from('generated-assets').upload(artifactPath, Buffer.from(JSON.stringify(pkgSummary.summary, null, 2)), { contentType: 'application/json', upsert: true })
 
-    const artifacts: any[] = [{ path: artifactPath, type: 'summary' }]
+    interface Artifact {
+      path: string;
+      type: 'summary' | 'pdf_deck' | 'pptx_deck' | 'docx_summary';
+    }
+    const artifacts: Artifact[] = [{ path: artifactPath, type: 'summary' }]
     if (pdfDeckPath) artifacts.push({ path: pdfDeckPath, type: 'pdf_deck' })
     if (pptxDeckPath) artifacts.push({ path: pptxDeckPath, type: 'pptx_deck' })
     if (docxSummaryPath) artifacts.push({ path: docxSummaryPath, type: 'docx_summary' })
@@ -207,8 +251,9 @@ export async function POST(req: NextRequest) {
     await supabase.from('ingestions').update({ status: 'succeeded', progress: 100 }).eq('id', ingestion_id)
 
     return NextResponse.json({ ok: true })
-  } catch (e: any) {
-    await supabase.from('ingestions').update({ status: 'failed', error: String(e?.message || e) }).eq('id', ingestion_id)
-    return NextResponse.json({ error: String(e?.message || e) }, { status: 500 })
+  } catch (e: unknown) {
+    const errorMessage = e instanceof Error ? e.message : String(e);
+    await supabase.from('ingestions').update({ status: 'failed', error: errorMessage }).eq('id', ingestion_id)
+    return NextResponse.json({ error: errorMessage }, { status: 500 })
   }
 }

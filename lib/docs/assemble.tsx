@@ -39,7 +39,7 @@ export function assembleTemplates(input: AssembleInput) {
     title: input.projectTitle,
     subtitle: input.core.genres?.join(', ') || undefined,
     logline: input.core.logline,
-    sections: (input.pitch.sections || []).map((s) => ({ title: s.title, bullets: s.bullets, note: s.notes as any })),
+    sections: (input.pitch.sections || []).map((s) => ({ title: s.title, bullets: s.bullets, note: s.notes as string | undefined })),
     characters: (input.characters.characters || []).map((c) => ({ name: c.name, arc: c.arc, context: c.cultural_context })),
     visuals: input.visuals.scenes,
   }
@@ -61,13 +61,13 @@ export function assembleTemplates(input: AssembleInput) {
 
 export async function generatePitchPdf(props: PitchPdfProps): Promise<Buffer> {
   const instance = pdf(<PitchPdfDoc {...props} />)
-  const raw: any = await (instance as any).toBuffer()
+  const raw: unknown = await instance.toBuffer()
   return await normalizeToBuffer(raw)
 }
 
 export async function generateExecutiveSummary(props: ExecSummaryProps): Promise<Buffer> {
   const instance = pdf(<ExecutiveSummaryDoc {...props} />)
-  const raw: any = await (instance as any).toBuffer()
+  const raw: unknown = await instance.toBuffer()
   return await normalizeToBuffer(raw)
 }
 
@@ -85,12 +85,13 @@ export async function generateAllDocsFromPipeline(input: AssembleInput) {
   return { pdf: pdfBuf, pptx: pptxBuf, exec: execBuf }
 }
 
-async function normalizeToBuffer(out: any): Promise<Buffer> {
+async function normalizeToBuffer(out: unknown): Promise<Buffer> {
   if (Buffer.isBuffer(out)) return out
   if (out instanceof Uint8Array) return Buffer.from(out)
+  
   // Web ReadableStream
-  if (out && typeof out.getReader === 'function') {
-    const reader = out.getReader()
+  if (out && typeof out === 'object' && 'getReader' in out && typeof out.getReader === 'function') {
+    const reader = (out as ReadableStream).getReader()
     const parts: Buffer[] = []
     while (true) {
       const { done, value } = await reader.read()
@@ -99,14 +100,17 @@ async function normalizeToBuffer(out: any): Promise<Buffer> {
     }
     return Buffer.concat(parts)
   }
+  
   // Node.js Readable
-  if (out && typeof out.on === 'function') {
+  if (out && typeof out === 'object' && 'on' in out && typeof out.on === 'function') {
     return await new Promise<Buffer>((resolve, reject) => {
       const chunks: Buffer[] = []
-      out.on('data', (c: any) => chunks.push(Buffer.from(c)))
-      out.on('end', () => resolve(Buffer.concat(chunks)))
-      out.on('error', reject)
+      const stream = out as NodeJS.ReadableStream
+      stream.on('data', (c: Buffer) => chunks.push(Buffer.from(c)))
+      stream.on('end', () => resolve(Buffer.concat(chunks)))
+      stream.on('error', reject)
     })
   }
+  
   return Buffer.from(String(out ?? ''), 'utf8')
 }

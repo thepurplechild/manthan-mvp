@@ -16,8 +16,8 @@ function parseNumberLike(input: unknown, fallback: number): number {
 const ServerSchema = z.object({
   ANTHROPIC_API_KEY: z.string().min(1, 'MISSING: ANTHROPIC_API_KEY'),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, 'MISSING: SUPABASE_SERVICE_ROLE_KEY'),
-  FILE_MAX_SIZE_MB: z.union([z.string(), z.number()]).optional().default(25 as any),
-  PIPELINE_MAX_TOKENS: z.union([z.string(), z.number()]).optional().default(120000 as any),
+  FILE_MAX_SIZE_MB: z.union([z.string(), z.number()]).optional().default(25),
+  PIPELINE_MAX_TOKENS: z.union([z.string(), z.number()]).optional().default(120000),
 })
 
 function formatIssues(issues: z.ZodIssue[]): string {
@@ -34,8 +34,7 @@ export function getServerEnv() {
   const parsed = ServerSchema.safeParse(process.env)
   if (!parsed.success) {
     const formatted = formatIssues(parsed.error.issues)
-    // eslint-disable-next-line no-console
-    console.error('[env:server] Missing/invalid environment variables:\n' + formatted)
+        console.error('[env:server] Missing/invalid environment variables:\n' + formatted)
     throw new Error('Environment validation failed:\n' + formatted)
   }
   const raw = parsed.data

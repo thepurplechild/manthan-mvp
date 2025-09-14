@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import Link from 'next/link'
+// import Link from 'next/link'
 
 export default async function AdminIngestions() {
   const supabase = await createClient()
@@ -28,7 +28,7 @@ export default async function AdminIngestions() {
             </tr>
           </thead>
           <tbody>
-            {(rows || []).map((r: any) => (
+            {(rows || []).map((r: { id: string; user_id: string; project_id?: string | null; status: string; progress: number; created_at: string }) => (
               <tr key={r.id} className="border-b border-gray-800">
                 <td className="py-2 pr-4 font-mono text-xs">{r.id}</td>
                 <td className="py-2 pr-4 text-xs">{r.user_id?.slice(0,8)}</td>
@@ -54,4 +54,3 @@ export default async function AdminIngestions() {
     </div>
   )
 }
-

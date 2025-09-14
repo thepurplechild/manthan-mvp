@@ -31,8 +31,16 @@ export default async function Dashboard() {
     .order('created_at', { ascending: false })
 
   // Recent activity (uploads/assets)
+  interface ProjectWithUploadsAndAssets {
+    id: string;
+    title: string;
+    script_uploads?: Array<{ uploaded_at: string; file_name?: string }>;
+    generated_assets?: Array<{ created_at: string; asset_type: string }>;
+    genre?: string[];
+  }
+  
   const recentUploads = (projects || [])
-    .flatMap((p: any) => (p.script_uploads || []).map((u: any) => ({
+    .flatMap((p: ProjectWithUploadsAndAssets) => (p.script_uploads || []).map((u) => ({
       type: 'upload' as const,
       projectId: p.id,
       projectTitle: p.title,
@@ -40,7 +48,7 @@ export default async function Dashboard() {
       label: u.file_name || 'Script upload'
     })))
   const recentAssets = (projects || [])
-    .flatMap((p: any) => (p.generated_assets || []).map((a: any) => ({
+    .flatMap((p: ProjectWithUploadsAndAssets) => (p.generated_assets || []).map((a) => ({
       type: 'asset' as const,
       projectId: p.id,
       projectTitle: p.title,
@@ -54,8 +62,9 @@ export default async function Dashboard() {
   // Market trends from your genres
   const genreCounts: Record<string, number> = {}
   for (const p of projects || []) {
-    if (Array.isArray((p as any).genre)) {
-      for (const g of (p as any).genre) {
+    const project = p as ProjectWithUploadsAndAssets;
+    if (Array.isArray(project.genre)) {
+      for (const g of project.genre) {
         if (!g) continue
         genreCounts[g] = (genreCounts[g] || 0) + 1
       }
@@ -215,7 +224,7 @@ export default async function Dashboard() {
             <div className="mt-4 border-t border-white/10 pt-3">
               <p className="text-white/80 font-semibold mb-2">Regional Insights</p>
               <ul className="space-y-1 text-purple-200 text-sm">
-                {(trends || []).map((t: any, idx: number) => (
+                {(trends || []).map((t: { region: string; trending_genres?: string[] }, idx: number) => (
                   <li key={idx}>• {t.region}: {(t.trending_genres || []).slice(0,3).join(', ')}</li>
                 ))}
               </ul>

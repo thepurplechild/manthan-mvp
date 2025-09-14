@@ -25,11 +25,15 @@ export async function callClaude(prompt: string, system?: string, maxTokens: num
   })
 
   // Consolidate all text parts
-  const parts = (msg?.content || []).map((c: any) => c.type === 'text' ? c.text : '').filter(Boolean)
+  interface ContentPart {
+    type: string;
+    text?: string;
+  }
+  const parts = (msg?.content || []).map((c: ContentPart) => c.type === 'text' ? c.text : '').filter(Boolean)
   return { text: parts.join('\n').trim() }
 }
 
-export function safeParseJSON<T = any>(text: string): T | null {
+export function safeParseJSON<T = unknown>(text: string): T | null {
   try {
     return JSON.parse(text) as T
   } catch {

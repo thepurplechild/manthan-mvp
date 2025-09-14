@@ -2,11 +2,37 @@
 
 import { useState } from 'react';
 
+interface StructuredContent {
+  type?: string;
+  scenes?: Array<{
+    heading?: string;
+    action?: string;
+    dialogue?: Array<{ character: string; line: string }>;
+    transitions?: string[];
+  }>;
+  metadata?: {
+    title?: string;
+    author?: string;
+    totalScenes?: number;
+  };
+}
+
+interface ParseMetadata {
+  title?: string;
+  author?: string;
+  pageCount?: number;
+  wordCount?: number;
+  charCount?: number;
+  language?: string;
+  formatVersion?: string;
+  custom?: Record<string, unknown>;
+}
+
 interface ParseResult {
   success: boolean;
   textContent?: string;
-  structuredContent?: any;
-  metadata?: any;
+  structuredContent?: StructuredContent;
+  metadata?: ParseMetadata;
   warnings?: string[];
   error?: string;
   processingTime?: number;

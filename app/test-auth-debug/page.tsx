@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 export default function AuthDebugPage() {
@@ -9,16 +9,12 @@ export default function AuthDebugPage() {
   const [testEmail, setTestEmail] = useState('test@example.com')
   const [testPassword, setTestPassword] = useState('testpassword123')
 
-  const addLog = (message: string) => {
+  const addLog = useCallback((message: string) => {
     const timestamp = new Date().toLocaleTimeString()
     setLogs(prev => [...prev, `${timestamp}: ${message}`])
-  }
-
-  useEffect(() => {
-    checkSupabaseConnection()
   }, [])
 
-  const checkSupabaseConnection = async () => {
+  const checkSupabaseConnection = useCallback(async () => {
     try {
       addLog('Creating Supabase client...')
       const supabase = createClient()
@@ -42,7 +38,11 @@ export default function AuthDebugPage() {
       addLog(`Unexpected error: ${error instanceof Error ? error.message : String(error)}`)
       setStatus('Error')
     }
-  }
+  }, [addLog])
+
+  useEffect(() => {
+    checkSupabaseConnection()
+  }, [checkSupabaseConnection])
 
   const testSignUp = async () => {
     try {

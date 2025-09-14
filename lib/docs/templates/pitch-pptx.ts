@@ -12,7 +12,7 @@ export type PitchPptxProps = {
 }
 
 export async function buildPitchPptx(props: PitchPptxProps): Promise<Buffer> {
-  const pptx = new (PptxGenJS as any)()
+  const pptx = new PptxGenJS()
   pptx.defineLayout({ name: 'A4', width: 11.69, height: 8.27 })
   pptx.layout = 'A4'
 

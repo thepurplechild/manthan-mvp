@@ -33,8 +33,19 @@ export default async function FounderProjectDetailPage({ params }: { params: Pro
     notFound();
   }
 
-  const name = (project as any).name || (project as any).title || "Untitled Project";
-  const description = (project as any).description || (project as any).synopsis || (project as any).logline || null;
+  interface ProjectData {
+    name?: string;
+    title?: string;
+    description?: string;
+    synopsis?: string;
+    logline?: string;
+    created_at?: string;
+    [key: string]: unknown;
+  }
+  
+  const projectData = project as ProjectData;
+  const name = projectData.name || projectData.title || "Untitled Project";
+  const description = projectData.description || projectData.synopsis || projectData.logline || null;
   const createdAt = project.created_at ? new Date(project.created_at).toLocaleString() : undefined;
 
   return (

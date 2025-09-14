@@ -1,5 +1,3 @@
-import type { Readable } from 'stream'
-
 export type PitchCharacter = {
   name: string
   description?: string
@@ -27,7 +25,7 @@ export async function generatePitchPDF(data: PitchData): Promise<Buffer> {
 
   const addPageWithText = (title: string, lines: string[]) => {
     const page = doc.addPage([612, 792])
-    const { width, height } = page.getSize()
+    const { height } = page.getSize()
     let y = height - 72
     page.drawText(title, { x: 72, y, size: 24, font, color: pdfLib.rgb(0.2, 0.2, 0.35) })
     y -= 32

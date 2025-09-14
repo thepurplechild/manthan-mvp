@@ -20,8 +20,9 @@ export function ReprocessDialog({ projectId, onDone }: { projectId: string; onDo
       if (!res.ok) throw new Error(`Reprocess failed: ${res.status}`)
       setOpen(false)
       onDone?.()
-    } catch (e: any) {
-      setError(String(e?.message || e))
+    } catch (e: unknown) {
+      const error = e instanceof Error ? e.message : String(e);
+      setError(error)
     } finally {
       setLoading(false)
     }

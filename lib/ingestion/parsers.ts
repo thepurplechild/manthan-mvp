@@ -19,6 +19,22 @@ import {
 } from './types';
 import { logger } from './logger';
 
+// Type definitions for external libraries
+interface PDFDocument {
+  numPages: number;
+  getPage: (pageNum: number) => Promise<PDFPage>;
+}
+
+interface PDFPage {
+  getViewport: (options: { scale: number }) => PDFViewport;
+  render: (context: { canvasContext: CanvasRenderingContext2D; viewport: PDFViewport }) => { promise: Promise<void> };
+}
+
+interface PDFViewport {
+  width: number;
+  height: number;
+}
+
 // Structured screenplay format
 export interface StructuredScript {
   type: 'structured_script';
@@ -70,14 +86,19 @@ async function ocrPdfBuffer(
 ): Promise<string> {
   try {
     // Dynamic imports so this stays server-only
-    const pdfjsLib: any = await import('pdfjs-dist/legacy/build/pdf.js');
+    const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.js') as {
+      getDocument: (options: { data: Buffer }) => { promise: Promise<PDFDocument> };
+      GlobalWorkerOptions?: { workerSrc?: string | undefined };
+    };
     const { createCanvas } = await import('canvas');
-    const Tesseract: any = await import('tesseract.js');
+    const Tesseract = await import('tesseract.js') as {
+      recognize: (image: Buffer, lang: string) => Promise<{ data: { text: string } }>;
+    };
 
     // Initialize PDF.js
     // Worker is optional in Node; suppress workerSrc warnings
     if (pdfjsLib.GlobalWorkerOptions) {
-      (pdfjsLib as any).GlobalWorkerOptions.workerSrc = undefined as any;
+      pdfjsLib.GlobalWorkerOptions.workerSrc = undefined;
     }
 
     const loadingTask = pdfjsLib.getDocument({ data: buffer });
@@ -134,7 +155,7 @@ async function ocrPdfBuffer(
     }
 
     return ocrText.trim();
-  } catch (err) {
+  } catch {
     addWarning?.({
       type: 'format_compatibility',
       message: 'OCR fallback failed while processing PDF pages',
@@ -481,7 +502,26 @@ export async function parseFinalDraftFile(
     });
 
     // Extract FDX structure
-    const fdxDocument = (result as any).FinalDraft;
+    interface FinalDraftDocument {
+      FinalDraft?: {
+        Content?: {
+          Paragraph?: Array<{
+            $: { Type: string };
+            Text?: string | { _: string };
+          }> | {
+            $: { Type: string };
+            Text?: string | { _: string };
+          };
+        };
+        TitlePage?: {
+          Content?: {
+            Paragraph?: Array<{ Text?: string | { _: string } }> | { Text?: string | { _: string } };
+          };
+        };
+        $?: { Version?: string };
+      };
+    }
+    const fdxDocument = (result as FinalDraftDocument).FinalDraft;
     if (!fdxDocument) {
       throw new Error('Invalid Final Draft format: missing FinalDraft root element');
     }
@@ -733,14 +773,14 @@ export async function parseCeltxFile(
       if (typeof element === 'string') {
         return element;
       }
-      if ((element as any)._ && typeof (element as any)._ === 'string') {
-        return (element as any)._;
+      if (typeof element === 'object' && element !== null && '_' in element && typeof (element as { _: string })._ === 'string') {
+        return (element as { _: string })._;
       }
       if (Array.isArray(element)) {
         return element.map(extractTextFromElement).join('\n');
       }
       if (typeof element === 'object' && element !== null) {
-        return Object.values(element as any).map(extractTextFromElement).join('\n');
+        return Object.values(element as Record<string, unknown>).map(extractTextFromElement).join('\n');
       }
       return '';
     };
@@ -1001,7 +1041,7 @@ export async function parsePowerPointFile(
         textContent += `\n--- Slide ${slideCount} ---\n`;
         
         // Extract text from slide elements
-        const extractTextFromSlide = (obj: any): void => {
+        const extractTextFromSlide = (obj: unknown): void => {
           if (typeof obj === 'string') {
             textContent += obj + ' ';
             return;
@@ -1014,18 +1054,19 @@ export async function parsePowerPointFile(
           
           if (obj && typeof obj === 'object') {
             // Look for text content in various PowerPoint XML elements
-            if (obj['a:t']) {
-              textContent += obj['a:t'] + ' ';
+            const objWithProps = obj as Record<string, unknown>;
+            if ('a:t' in objWithProps && typeof objWithProps['a:t'] === 'string') {
+              textContent += objWithProps['a:t'] + ' ';
             }
             
-            Object.values(obj).forEach(extractTextFromSlide);
+            Object.values(objWithProps).forEach(extractTextFromSlide);
           }
         };
 
         extractTextFromSlide(slideData);
         textContent += '\n';
 
-      } catch (_slideError) {
+      } catch {
         warnings.push({
           type: 'partial_extraction',
           message: `Could not parse slide ${slideCount}`,
@@ -1053,7 +1094,7 @@ export async function parsePowerPointFile(
           const parseXML = promisify(parser.parseString.bind(parser)) as (xml: string) => Promise<unknown>;
           const notesData = await parseXML(notesXml);
 
-          const extractNotesText = (obj: any): void => {
+          const extractNotesText = (obj: unknown): void => {
             if (typeof obj === 'string') {
               textContent += obj + ' ';
               return;
@@ -1065,10 +1106,11 @@ export async function parsePowerPointFile(
             }
             
             if (obj && typeof obj === 'object') {
-              if (obj['a:t']) {
-                textContent += obj['a:t'] + ' ';
+              const objWithProps = obj as Record<string, unknown>;
+              if ('a:t' in objWithProps && typeof objWithProps['a:t'] === 'string') {
+                textContent += objWithProps['a:t'] + ' ';
               }
-              Object.values(obj).forEach(extractNotesText);
+              Object.values(objWithProps).forEach(extractNotesText);
             }
           };
 
@@ -1100,9 +1142,16 @@ export async function parsePowerPointFile(
         const parseXML = promisify(parser.parseString.bind(parser)) as (xml: string) => Promise<unknown>;
         const coreProps = await parseXML(corePropsXml);
 
-        if ((coreProps as any)['cp:coreProperties']) {
-          presentationTitle = (coreProps as any)['cp:coreProperties']['dc:title'] || '';
-          presentationAuthor = (coreProps as any)['cp:coreProperties']['dc:creator'] || '';
+        interface CoreProperties {
+          'cp:coreProperties'?: {
+            'dc:title'?: string;
+            'dc:creator'?: string;
+          };
+        }
+        const typedCoreProps = coreProps as CoreProperties;
+        if (typedCoreProps['cp:coreProperties']) {
+          presentationTitle = typedCoreProps['cp:coreProperties']['dc:title'] || '';
+          presentationAuthor = typedCoreProps['cp:coreProperties']['dc:creator'] || '';
         }
       } catch {
         // Ignore metadata extraction errors
@@ -1197,7 +1246,6 @@ export async function parseFile(
     return result;
 
   } catch (error) {
-    const duration = Date.now() - startTime;
     const parseError = error instanceof Error ? error : new Error('Unknown parsing error');
     logger.fileProcessing.failed(filename, parseError);
     

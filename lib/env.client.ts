@@ -31,8 +31,7 @@ export function getClientEnv() {
   })
   if (!parsed.success) {
     const formatted = formatIssues(parsed.error.issues)
-    // eslint-disable-next-line no-console
-    console.warn('[env:client] Missing/invalid environment variables:\n' + formatted)
+        console.warn('[env:client] Missing/invalid environment variables:\n' + formatted)
     throw new Error('Environment validation failed:\n' + formatted)
   }
   return parsed.data

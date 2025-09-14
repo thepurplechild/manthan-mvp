@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
   const arrayBuf = await file.arrayBuffer()
   const buffer = Buffer.from(arrayBuf)
   const id = randomUUID()
-  const ext = file.name.split('.').pop() || 'bin'
+  // File extension extraction is done via file.name directly in path
   const path = `scripts/${user.id}/${id}/${file.name}`
 
   // Upload to Supabase Storage (private bucket 'scripts')
