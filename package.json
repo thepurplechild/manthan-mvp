@@ -13,7 +13,8 @@
     "test:e2e:init": "playwright install --with-deps || true",
     "typecheck": "tsc --noEmit",
     "prepare": "husky install",
-    "check:env": "ts-node --transpile-only scripts/check-env.ts"
+    "check:env": "ts-node --transpile-only scripts/check-env.ts",
+    "check:routes": "node scripts/check-routes.js"
   },
   "engines": {
     "node": ">=18.17 <21"
