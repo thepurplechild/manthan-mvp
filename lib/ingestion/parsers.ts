@@ -5,7 +5,6 @@
  * Each parser extracts content and returns structured data.
  */
 
-import { createHash } from 'crypto';
 import pdfParse from 'pdf-parse';
 import * as mammoth from 'mammoth';
 import * as xml2js from 'xml2js';
@@ -137,7 +136,7 @@ async function ocrPdfBuffer(
     return ocrText.trim();
   } catch (err) {
     addWarning?.({
-      type: 'parsing_error',
+      type: 'format_compatibility',
       message: 'OCR fallback failed while processing PDF pages',
       severity: 'medium',
       suggestions: [
@@ -375,7 +374,7 @@ export async function parsePdfFile(
         });
       } else {
         warnings.push({
-          type: 'extraction_failed',
+          type: 'empty_content',
           message: 'OCR fallback did not produce usable text',
           severity: 'high',
           suggestions: [
@@ -585,6 +584,17 @@ export async function parseFinalDraftFile(
             if (currentScene && currentScene.dialogue && currentScene.dialogue.length > 0) {
               const lastDialogue = currentScene.dialogue[currentScene.dialogue.length - 1];
               lastDialogue.parenthetical = text;
+            }
+            break;
+
+          case 'Transition':
+            {
+              const t = normalizeTransition(text);
+              if (currentScene && currentScene.transitions) {
+                if (!currentScene.transitions.includes(t)) currentScene.transitions.push(t);
+              } else {
+                if (!pendingTransitions.includes(t)) pendingTransitions.push(t);
+              }
             }
             break;
         }
@@ -1193,14 +1203,4 @@ export async function parseFile(
     
     throw parseError;
   }
-          case 'Transition':
-            {
-              const t = normalizeTransition(text);
-              if (currentScene && currentScene.transitions) {
-                if (!currentScene.transitions.includes(t)) currentScene.transitions.push(t);
-              } else {
-                if (!pendingTransitions.includes(t)) pendingTransitions.push(t);
-              }
-            }
-            break;
 }

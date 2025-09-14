@@ -108,8 +108,8 @@ export async function POST(req: NextRequest) {
     await setProgress(45)
 
     await updateStep('character_bible','running')
+    let bible: any = null
     try {
-      let bible: any
       if (process.env.ANTHROPIC_API_KEY) {
         const prompt2 = `Using the following core elements JSON, generate a CHARACTER_BIBLE as strict JSON with keys: characters (array of objects each with name, motivations, conflicts, relationships (array), arc, cultural_context). Respond ONLY with JSON.\n\nCORE_ELEMENTS_JSON:\n${JSON.stringify(core)}`
         const { text } = await callClaude(prompt2, 'Expand core elements into a detailed character bible as JSON.', 1500)
@@ -151,7 +151,7 @@ export async function POST(req: NextRequest) {
       }
     } catch (err: any) {
       await updateStep('character_bible','failed', undefined, String(err?.message || err))
-      const bible = { characters: [{ name: 'Protagonist', arc: 'from doubt to purpose' }] }
+      bible = { characters: [{ name: 'Protagonist', arc: 'from doubt to purpose' }] }
       await updateStep('character_bible','succeeded', bible)
     }
     await setProgress(60)
