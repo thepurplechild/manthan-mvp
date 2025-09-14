@@ -16,8 +16,9 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
     notFound();
   }
 
-  const displayName = (project as any).name || (project as any).title || "Untitled Project";
-  const displayDescription = (project as any).description || (project as any).synopsis || (project as any).logline || null;
+  const anyProj = project as Record<string, unknown>
+  const displayName = (anyProj.name as string) || (anyProj.title as string) || "Untitled Project";
+  const displayDescription = (anyProj.description as string) || (anyProj.synopsis as string) || (anyProj.logline as string) || null;
   const createdAt = project.created_at ? new Date(project.created_at).toLocaleString() : undefined;
 
   return (
@@ -53,6 +54,6 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     .eq("id", id)
     .single();
 
-  const title = (project as any)?.name || (project as any)?.title || "Project";
+  const title = (project as Record<string, unknown>)?.name as string || (project as Record<string, unknown>)?.title as string || "Project";
   return { title } as const;
 }

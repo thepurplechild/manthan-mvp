@@ -68,11 +68,12 @@ export function LoginForm({
         type: 'signup',
         email,
         options: { emailRedirectTo: `${window.location.origin}/auth/confirm?next=/dashboard` },
-      } as any);
+      } as unknown as { type: 'signup'; email: string; options: { emailRedirectTo: string } });
       if (error) throw error;
       setResendMsg('Verification email sent. Check your inbox and spam folder.');
-    } catch (err: any) {
-      setResendMsg(err?.message || 'Resend failed');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Resend failed'
+      setResendMsg(msg);
     } finally {
       setResending(false);
     }

@@ -1,7 +1,9 @@
 "use client"
 import React from 'react'
 
-export function OutputList({ outputs }: { outputs: { step: string; payload: any; created_at?: string }[] }) {
+import type { JSONValue } from '@/types/common'
+
+export function OutputList({ outputs }: { outputs: { step: string; payload: JSONValue; created_at?: string }[] }) {
   if (!outputs || outputs.length === 0) return <div className="text-sm text-slate-500">No outputs yet.</div>
   return (
     <div className="space-y-3">
@@ -14,4 +16,3 @@ export function OutputList({ outputs }: { outputs: { step: string; payload: any;
     </div>
   )
 }
-

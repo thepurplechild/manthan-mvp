@@ -16,4 +16,3 @@ export async function POST(req: NextRequest) {
   if (error) return NextResponse.json({ code: 'sign_failed', message: error.message }, { status: 500 })
   return NextResponse.json({ ok: true, url: data.signedUrl })
 }
-

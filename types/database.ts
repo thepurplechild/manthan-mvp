@@ -14,7 +14,7 @@ export interface Project {
   logline: string | null
   synopsis: string | null
   genre: string | null
-  character_breakdowns: any | null
+  character_breakdowns: import('./common').JSONValue | null
   budget_range: string | null
   target_platforms: string | null
   created_at: string

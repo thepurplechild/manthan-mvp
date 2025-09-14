@@ -14,7 +14,7 @@ const Body = z.object({
   options: z.object({ targetPlatform: z.string().optional(), tone: z.string().optional() }).optional(),
 })
 
-async function updateStep(supabase: any, ingestionId: string, name: string, patch: any) {
+async function updateStep(supabase: import('@supabase/supabase-js').SupabaseClient, ingestionId: string, name: string, patch: Record<string, unknown>) {
   await supabase.from('ingestion_steps').upsert({ ingestion_id: ingestionId, name, ...patch }, { onConflict: 'ingestion_id,name' })
 }
 
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ code: 'unauthorized', message: 'Sign in required' }, { status: 401 })
 
   // Resolve ingestion record
-  let ingestion: any = null
+  let ingestion: Record<string, unknown> | null = null
   if (body.data.ingestionId) {
     const { data } = await supabase.from('ingestions').select('*').eq('id', body.data.ingestionId).single()
     ingestion = data
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
   if (!ingestion) return NextResponse.json({ code: 'not_found', message: 'No ingestion found for processing' }, { status: 404 })
 
   // Download file
-  const path: string = ingestion.source_file_url
+  const path: string = String(ingestion.source_file_url)
   const dl = await supabase.storage.from('scripts').download(path)
   if (dl.error) return NextResponse.json({ code: 'download_failed', message: dl.error.message }, { status: 500 })
   const buffer = Buffer.from(await dl.data.arrayBuffer())
@@ -53,20 +53,20 @@ export async function POST(req: NextRequest) {
   if (!scriptText) return NextResponse.json({ code: 'empty_script', message: 'No text content found after parsing' }, { status: 400 })
 
   // Progress helpers
-  await supabase.from('ingestions').update({ status: 'running', progress: 5 }).eq('id', ingestion.id)
+  await supabase.from('ingestions').update({ status: 'running', progress: 5 }).eq('id', ingestion.id as string)
 
   const run = <T>(name: string, fn: () => Promise<T>) => pRetry(async () => {
-    await updateStep(supabase, ingestion.id, name, { status: 'running', started_at: new Date().toISOString() })
+    await updateStep(supabase, ingestion.id as string, name, { status: 'running', started_at: new Date().toISOString() })
     try {
       const res = await fn()
-      await updateStep(supabase, ingestion.id, name, { status: 'succeeded', finished_at: new Date().toISOString(), output: res as any })
+      await updateStep(supabase, ingestion.id as string, name, { status: 'succeeded', finished_at: new Date().toISOString(), output: res as unknown as import('@/types/common').JSONObject })
       // Persist step output for project history
       if (ingestion.project_id) {
-        await supabase.from('generated_content').insert({ project_id: ingestion.project_id, step: name, payload: res as any })
+        await supabase.from('generated_content').insert({ project_id: ingestion.project_id as string, step: name, payload: res as unknown as import('@/types/common').JSONObject })
       }
       return res
-    } catch (err: any) {
-      await updateStep(supabase, ingestion.id, name, { status: 'failed', finished_at: new Date().toISOString(), error: String(err?.message || err) })
+    } catch (err: unknown) {
+      await updateStep(supabase, ingestion.id as string, name, { status: 'failed', finished_at: new Date().toISOString(), error: err instanceof Error ? err.message : String(err) })
       throw err
     }
   }, { retries: 2, factor: 2, minTimeout: 400, maxTimeout: 1500 })
@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
     await supabase.from('ingestions').update({ progress: 90 }).eq('id', ingestion.id)
 
     // f) Document Assembly trigger (client can call /api/generate-documents)
-    await updateStep(supabase, ingestion.id, 'final_package', { status: 'queued', output: { ready: true, core, characters, market, pitch, visuals } })
+    await updateStep(supabase, ingestion.id as string, 'final_package', { status: 'queued', output: { ready: true, core, characters, market, pitch, visuals } })
     await supabase.from('ingestions').update({ status: 'succeeded', progress: 95 }).eq('id', ingestion.id)
     // Update project rollups
     if (ingestion.project_id) {
@@ -102,9 +102,10 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ ok: true, ingestionId: ingestion.id, results: { core, characters, market, pitch, visuals } })
-  } catch (e: any) {
-    await supabase.from('ingestions').update({ status: 'failed', error: String(e?.message || e) }).eq('id', ingestion.id)
-    return NextResponse.json({ code: 'orchestrator_failed', message: String(e?.message || e), retriable: true }, { status: 500 })
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e)
+    await supabase.from('ingestions').update({ status: 'failed', error: msg }).eq('id', ingestion?.id as string)
+    return NextResponse.json({ code: 'orchestrator_failed', message: msg, retriable: true }, { status: 500 })
   }
 }
 

@@ -29,8 +29,8 @@ export async function POST(req: NextRequest) {
   try {
     const res: PitchContent = await stepPitchContent(body.data.core, body.data.market as MarketAdaptation, body.data.characters)
     return NextResponse.json({ ok: true, result: res })
-  } catch (e: any) {
-    return NextResponse.json({ code: 'ai_failed', message: String(e?.message || e), retriable: true }, { status: 500 })
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e)
+    return NextResponse.json({ code: 'ai_failed', message: msg, retriable: true }, { status: 500 })
   }
 }
-

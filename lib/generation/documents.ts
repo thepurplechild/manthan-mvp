@@ -21,19 +21,19 @@ export type PitchData = {
 }
 
 export async function generatePitchPDF(data: PitchData): Promise<Buffer> {
-  const { PDFDocument, StandardFonts, rgb } = await import('pdf-lib') as any
-  const doc = await PDFDocument.create()
-  const font = await doc.embedFont(StandardFonts.Helvetica)
+  const pdfLib = await import('pdf-lib')
+  const doc = await pdfLib.PDFDocument.create()
+  const font = await doc.embedFont(pdfLib.StandardFonts.Helvetica)
 
   const addPageWithText = (title: string, lines: string[]) => {
     const page = doc.addPage([612, 792])
     const { width, height } = page.getSize()
     let y = height - 72
-    page.drawText(title, { x: 72, y, size: 24, font, color: rgb(0.2, 0.2, 0.35) })
+    page.drawText(title, { x: 72, y, size: 24, font, color: pdfLib.rgb(0.2, 0.2, 0.35) })
     y -= 32
     for (const line of lines) {
       if (!line) continue
-      page.drawText(line.substring(0, 110), { x: 72, y, size: 12, font, color: rgb(0.1, 0.1, 0.1) })
+      page.drawText(line.substring(0, 110), { x: 72, y, size: 12, font, color: pdfLib.rgb(0.1, 0.1, 0.1) })
       y -= 16
       if (y < 72) {
         y = height - 72
@@ -76,31 +76,38 @@ export async function generatePitchPDF(data: PitchData): Promise<Buffer> {
 }
 
 export async function generatePitchPPTX(data: PitchData): Promise<Buffer> {
-  const officegenMod: any = await import('officegen')
-  const officegen = (officegenMod as any).default || officegenMod
-  const pptx = officegen('pptx')
+  const factory = (await import('officegen')) as unknown as (type: 'pptx') => unknown
+  const pptx = factory('pptx') as unknown as {
+    on: (event: 'error', cb: (e: unknown) => void) => void
+    makeTitleSlide?: (title: string, subtitle?: string) => void
+    makeNewSlide: () => {
+      back?: string
+      addText: (text: string | string[], opts?: Record<string, unknown>) => void
+    }
+    generate: (out: NodeJS.WritableStream) => void
+  }
 
   pptx.on('error', function () {})
 
   const title = data.title || 'Pitch Deck'
   const sub = (data.genres && data.genres.length ? data.genres.join(', ') : '') || (data.marketTags && data.marketTags.join(', ') || '')
   try {
-    if (typeof (pptx as any).makeTitleSlide === 'function') {
-      ;(pptx as any).makeTitleSlide(title, sub)
+    if (typeof pptx.makeTitleSlide === 'function') {
+      pptx.makeTitleSlide(title, sub)
     } else {
-      const slide = (pptx as any).makeNewSlide()
+      const slide = pptx.makeNewSlide()
       slide.back = 'FFFFFF'
       slide.addText(title, { x: 1.0, y: 0.8, cx: 8.0, cy: 1.0, font_size: 36, color: '1A1A59', bold: true, align: 'center' })
       if (sub) slide.addText(sub, { x: 1.0, y: 1.8, cx: 8.0, cy: 0.6, font_size: 18, color: '444444', align: 'center' })
     }
   } catch {}
 
-  const slideLogline = (pptx as any).makeNewSlide()
+  const slideLogline = pptx.makeNewSlide()
   slideLogline.addText('Logline', { x: 0.8, y: 0.6, font_size: 28, bold: true, color: '1A1A59' })
   slideLogline.addText(data.logline || '', { x: 0.8, y: 1.2, cx: 8.4, font_size: 18, color: '222222' })
 
   if (data.themes?.length || data.marketTags?.length) {
-    const slidePos = (pptx as any).makeNewSlide()
+    const slidePos = pptx.makeNewSlide()
     slidePos.addText('Positioning (India/Bharat)', { x: 0.8, y: 0.6, font_size: 24, bold: true, color: '1A1A59' })
     if (data.themes?.length) slidePos.addText(`Themes: ${data.themes.join(', ')}`, { x: 0.8, y: 1.2, cx: 8.4, font_size: 18 })
     if (data.marketTags?.length) slidePos.addText(`Market: ${data.marketTags.join(', ')}`, { x: 0.8, y: 1.8, cx: 8.4, font_size: 18 })
@@ -108,7 +115,7 @@ export async function generatePitchPPTX(data: PitchData): Promise<Buffer> {
 
   const chars = data.characters || []
   if (chars.length) {
-    const slideChars = (pptx as any).makeNewSlide()
+    const slideChars = pptx.makeNewSlide()
     slideChars.addText('Characters', { x: 0.8, y: 0.6, font_size: 24, bold: true, color: '1A1A59' })
     let y = 1.2
     for (const c of chars.slice(0, 6)) {
@@ -128,20 +135,20 @@ export async function generatePitchPPTX(data: PitchData): Promise<Buffer> {
   const { PassThrough } = await import('stream')
   const out = new PassThrough()
   const chunks: Buffer[] = []
-  out.on('data', (c: any) => chunks.push(Buffer.from(c)))
+  out.on('data', (c: unknown) => chunks.push(Buffer.from(c as Uint8Array)))
   const bufPromise: Promise<Buffer> = new Promise((resolve, reject) => {
     out.on('finish', () => resolve(Buffer.concat(chunks)))
     out.on('error', reject)
   })
-  ;(pptx as any).generate(out)
+  pptx.generate(out)
   return await bufPromise
 }
 
 export async function generateSummaryDOCX(data: PitchData): Promise<Buffer> {
-  const mod: any = await import('docx')
+  const mod = await import('docx')
   const { Document, Packer, Paragraph, HeadingLevel, TextRun } = mod
 
-  const children: any[] = []
+  const children: Array<InstanceType<typeof Paragraph>> = []
 
   children.push(new Paragraph({ text: data.title || 'Executive Summary', heading: HeadingLevel.TITLE }))
   if (data.logline) {

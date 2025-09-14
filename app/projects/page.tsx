@@ -39,12 +39,14 @@ export default async function ProjectsIndexPage() {
           </div>
         ) : (
           <ul className="space-y-3">
-            {list.map((p) => {
-              const name = (p as any).name || (p as any).title || "Untitled Project";
-              const when = (p as any).created_at ? new Date((p as any).created_at).toLocaleString() : "";
+            {list.map((p: Record<string, unknown>) => {
+              const name = (p as Record<string, unknown>).name as string || (p as Record<string, unknown>).title as string || "Untitled Project";
+              const created = (p as Record<string, unknown>).created_at as string | undefined;
+              const when = created ? new Date(created).toLocaleString() : "";
+              const id = (p as Record<string, unknown>).id as string;
               return (
-                <li key={(p as any).id} className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl px-5 py-4 hover:bg-white/15 transition-colors">
-                  <Link href={`/projects/${(p as any).id}`} className="flex items-center justify-between">
+                <li key={id} className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl px-5 py-4 hover:bg-white/15 transition-colors">
+                  <Link href={`/projects/${id}`} className="flex items-center justify-between">
                     <span className="font-medium">{name}</span>
                     <span className="text-sm text-purple-200">{when}</span>
                   </Link>

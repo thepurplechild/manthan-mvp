@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
 
     // Validate file type
     const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
-    if (!SUPPORTED_FILE_TYPES.includes(fileExtension as any)) {
+    if (!SUPPORTED_FILE_TYPES.includes(fileExtension as import('@/lib/ingestion/types').SupportedFileType)) {
       return NextResponse.json(
         { 
           error: `Unsupported file type: ${fileExtension}. Supported types: ${SUPPORTED_FILE_TYPES.join(', ')}` 
@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
     const parseResult = await parseFile(
       file.name,
       fileBuffer,
-      fileExtension as any,
+      fileExtension as import('@/lib/ingestion/types').SupportedFileType,
       (progress) => {
         // Progress callback - in a real app you might use WebSockets or Server-Sent Events
         console.log(`Parse progress: ${progress.currentStep} - ${progress.progress}%`);

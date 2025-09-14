@@ -22,19 +22,20 @@ export async function callClaudeSafe(prompt: string, system?: string, maxTokens 
         system: system || 'You are a precise assistant. Respond in strict JSON when asked.',
         messages: [{ role: 'user', content: prompt }],
       })
-      const parts = (msg?.content || []).map((c: any) => (c.type === 'text' ? c.text : '')).filter(Boolean)
+      const content = (msg as unknown as { content?: Array<{ type: string; text?: string }> }).content || []
+      const parts = content.map((c) => (c.type === 'text' ? (c.text || '') : '')).filter(Boolean)
       return { text: parts.join('\n').trim() }
-    } catch (err: any) {
-      const status = err?.status || err?.response?.status
+    } catch (err: unknown) {
+      const status = (err as { status?: number; response?: { status?: number } })?.status || (err as { response?: { status?: number } })?.response?.status
       if (status && status >= 400 && status < 500 && status !== 429) {
-        throw new AbortError(err)
+        throw new AbortError(err as Error)
       }
       throw err
     }
   }, { retries: 3, factor: 2, minTimeout: 300, maxTimeout: 1500 })
 }
 
-export function safeParseJSON<T = any>(text: string): T | null {
+export function safeParseJSON<T = unknown>(text: string): T | null {
   try { return JSON.parse(text) as T } catch {
     const match = text.match(/\{[\s\S]*\}$/)
     if (match) { try { return JSON.parse(match[0]) as T } catch {} }

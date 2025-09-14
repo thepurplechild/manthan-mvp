@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ code: 'unauthorized' }, { status: 401 })
 
-  let ingestion: any = null
+  let ingestion: Record<string, unknown> | null = null
   if (ingestionId) {
     const { data } = await supabase.from('ingestions').select('*').eq('id', ingestionId).single()
     ingestion = data
@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
     .order('created_at', { ascending: false })
 
   // Map to client-friendly structure
-  const mapStep = (s: any) => ({
+  const mapStep = (s: Record<string, unknown>) => ({
     name: s.name,
     status: s.status,
     startedAt: s.started_at,
@@ -64,4 +64,3 @@ export async function GET(req: NextRequest) {
   }
   return NextResponse.json({ ok: true, data: result })
 }
-

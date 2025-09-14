@@ -1,6 +1,7 @@
 "use client"
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import type { JSONValue } from '@/types/common'
 
 export type StepStatus = 'queued'|'pending'|'running'|'failed'|'succeeded'|'skipped'|'completed'
 export type StepName = 'core_extraction'|'character_bible'|'market_adaptation'|'package_assembly'|'visuals'|'final_package'
@@ -10,7 +11,7 @@ export interface PipelineStep {
   status: StepStatus
   startedAt?: string
   finishedAt?: string
-  output?: any
+  output?: JSONValue
   error?: string
 }
 
@@ -28,7 +29,7 @@ export function usePipelineProgress(projectId: string | undefined) {
   const [state, setState] = useState<PipelineState | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const pollRef = useRef<NodeJS.Timeout | null>(null)
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [docsReady, setDocsReady] = useState(false)
 
   const fetchStatus = useCallback(async () => {
@@ -39,8 +40,8 @@ export function usePipelineProgress(projectId: string | undefined) {
       const json = await res.json()
       setState(json.data)
       return json.data as PipelineState
-    } catch (e: any) {
-      setError(String(e?.message || e))
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : String(e))
       return null
     }
   }, [projectId])
@@ -52,8 +53,8 @@ export function usePipelineProgress(projectId: string | undefined) {
     try {
       const res = await fetch('/api/process-script', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ projectId }) })
       if (!res.ok) throw new Error(`Start failed: ${res.status}`)
-    } catch (e: any) {
-      setError(String(e?.message || e))
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : String(e))
     } finally {
       setLoading(false)
     }
@@ -69,16 +70,20 @@ export function usePipelineProgress(projectId: string | undefined) {
     const pitch = s.steps.find(x => x.name === 'package_assembly')?.output || {}
     const visuals = s.steps.find(x => x.name === 'visuals')?.output || {}
     if (!s.projectId) return
+    const cCore = core as Record<string, unknown>
+    const cChars = characters as Record<string, unknown>
+    const cMarket = market as Record<string, unknown>
+    const recs = (cMarket.recommendations as Array<{ platform: string }> | undefined) || []
     const payload = {
       projectId: s.projectId,
       data: {
-        title: core?.title || 'Pitch Deck',
-        logline: core?.logline,
-        synopsis: core?.synopsis,
-        themes: core?.themes,
-        genres: core?.genres,
-        characters: characters?.characters,
-        marketTags: (market?.recommendations || []).map((r: any) => r.platform)
+        title: (cCore.title as string) || 'Pitch Deck',
+        logline: cCore.logline as string | undefined,
+        synopsis: cCore.synopsis as string | undefined,
+        themes: cCore.themes as string[] | undefined,
+        genres: cCore.genres as string[] | undefined,
+        characters: cChars.characters as unknown[] | undefined,
+        marketTags: recs.map((r) => r.platform)
       }
     }
     const res = await fetch('/api/generate-documents', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
@@ -96,17 +101,17 @@ export function usePipelineProgress(projectId: string | undefined) {
       if (!current || current.status !== 'succeeded') {
         await start()
       }
-      if (pollRef.current) clearInterval(pollRef.current as any)
+      if (pollRef.current) clearInterval(pollRef.current)
       pollRef.current = setInterval(async () => {
         const s = await fetchStatus()
         const done = s && (s.status === 'succeeded' || s.steps?.every(st => st.status === 'succeeded'))
         if (done && s) {
-          clearInterval(pollRef.current as any)
+          if (pollRef.current) clearInterval(pollRef.current)
           if (!docsReady) await generateDocuments(s)
         }
-      }, 2000) as any
+      }, 2000)
     })()
-    return () => { if (pollRef.current) clearInterval(pollRef.current as any) }
+    return () => { if (pollRef.current) clearInterval(pollRef.current) }
   }, [projectId, start, fetchStatus, docsReady, generateDocuments])
 
   const getSignedUrl = useCallback(async (path: string, expiresIn = 3600) => {
@@ -121,4 +126,3 @@ export function usePipelineProgress(projectId: string | undefined) {
 
   return { state, loading, error, start, retry, getSignedUrl }
 }
-

@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
   if (!body.success) return NextResponse.json({ code: 'bad_request', message: 'Invalid payload', hint: body.error.issues.map(i=>i.message).join('; ') }, { status: 400 })
 
   const { projectId, data } = body.data
-  const pd: PitchData = data as any
+  const pd: PitchData = data as PitchData
 
   try {
     const [pdf, pptx, docx] = await Promise.all([
@@ -55,8 +55,8 @@ export async function POST(req: NextRequest) {
     ])
 
     return NextResponse.json({ ok: true, assets: { pdf: pdfPath, pptx: pptxPath, docx: docxPath } })
-  } catch (e: any) {
-    return NextResponse.json({ code: 'doc_generation_failed', message: String(e?.message || e), retriable: false }, { status: 500 })
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e)
+    return NextResponse.json({ code: 'doc_generation_failed', message: msg, retriable: false }, { status: 500 })
   }
 }
-

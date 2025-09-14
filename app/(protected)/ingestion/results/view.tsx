@@ -17,7 +17,7 @@ export default function ClientView({ projectId }: { projectId: string }) {
       visuals: 'Visuals',
       final_package: 'Assembly',
     }
-    return (state?.steps || []).map((s) => ({ key: s.name, label: map[s.name] || s.name, status: s.status as any, progress: s.status==='succeeded'?100:s.status==='running'?50:0 }))
+    return (state?.steps || []).map((s) => ({ key: s.name, label: map[s.name] || s.name, status: s.status as 'pending'|'running'|'succeeded'|'failed'|'skipped', progress: s.status==='succeeded'?100:s.status==='running'?50:0 }))
   }, [state])
 
   const done = state && (state.status === 'succeeded' || state.steps.every((s) => s.status==='succeeded'))
@@ -31,7 +31,7 @@ export default function ClientView({ projectId }: { projectId: string }) {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {(state?.steps || []).map((s) => (
-          <StepCard key={s.name} title={s.name} status={(s.status as any) || 'pending'} onRetry={retry}>
+          <StepCard key={s.name} title={s.name} status={(s.status as 'pending'|'running'|'succeeded'|'failed'|'skipped') || 'pending'} onRetry={retry}>
             {s.error && <div className="text-red-700">{s.error}</div>}
             {s.output && <pre className="text-xs bg-slate-50 rounded p-2 overflow-auto max-h-48">{JSON.stringify(s.output, null, 2)}</pre>}
           </StepCard>
@@ -70,4 +70,3 @@ function AssetButton({ path, kind, getSignedUrl }: { path: string; kind: string;
   }
   return <button className="px-3 py-1.5 rounded bg-blue-600 text-white text-sm" onClick={onClick}>{label}</button>
 }
-

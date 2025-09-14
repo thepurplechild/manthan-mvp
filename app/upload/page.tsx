@@ -10,7 +10,7 @@ export default function UploadPage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    let timer: any
+    let timer: ReturnType<typeof setTimeout> | undefined
     if (ingestionId) {
       // Poll ingestion status every 2s
       timer = setInterval(async () => {
@@ -56,4 +56,3 @@ export default function UploadPage() {
     </div>
   )
 }
-
