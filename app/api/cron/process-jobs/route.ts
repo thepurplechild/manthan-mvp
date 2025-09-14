@@ -11,10 +11,15 @@ import {
   acquireProcessingLock,
   releaseProcessingLock,
   getQueueStats,
-  updateStats
+  updateStats,
+  scheduleJobRetry,
+  cleanupOldJobs,
+  acquireCleanupLock,
+  releaseCleanupLock
 } from '@/lib/jobs/queue';
 import { processJobBatch } from '@/lib/jobs/processor';
-import { QUEUE_BATCH_SIZE } from '@/lib/jobs/types';
+import { JobLogger, updateJobMetrics } from '@/lib/jobs/metrics';
+import { QUEUE_BATCH_SIZE, JobMetadata } from '@/lib/jobs/types';
 
 /**
  * Verify the request is from Vercel Cron
@@ -50,18 +55,24 @@ function verifyVercelCron(request: NextRequest): boolean {
   return true;
 }
 
+const logger = JobLogger.getInstance();
+
 /**
- * Process jobs cron handler
+ * Enhanced process jobs cron handler with comprehensive error handling
  */
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
+  const cronSessionId = `cron_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+  logger.info('CRON_START', 'Job processing cron triggered', {
+    cronSessionId,
+    userAgent: request.headers.get('user-agent')
+  });
 
   try {
-    console.log('[cron] Job processing cron triggered');
-
     // Verify this is a legitimate cron request
     if (!verifyVercelCron(request)) {
-      console.error('[cron] Unauthorized cron request');
+      logger.error('CRON_AUTH', 'Unauthorized cron request', undefined, { cronSessionId });
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -69,9 +80,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Try to acquire processing lock to prevent concurrent runs
-    const lockAcquired = await acquireProcessingLock(300); // 5 minute lock
+    const lockAcquired = await acquireProcessingLock(300000); // 5 minute lock
     if (!lockAcquired) {
-      console.log('[cron] Processing lock already held, skipping this run');
+      logger.warn('CRON_LOCK', 'Processing lock already held, skipping this run', { cronSessionId });
       return NextResponse.json({
         success: true,
         message: 'Processing lock already held, skipping',
@@ -82,14 +93,28 @@ export async function POST(request: NextRequest) {
     let processedJobs = 0;
     let successfulJobs = 0;
     let failedJobs = 0;
+    let retriedJobs = 0;
+    let deadLetterJobs = 0;
 
     try {
       // Get queue statistics before processing
       const initialStats = await getQueueStats();
-      console.log(`[cron] Queue stats: ${initialStats.pendingJobs} pending jobs`);
+      logger.info('CRON_QUEUE_STATS', 'Initial queue statistics', {
+        cronSessionId,
+        pendingJobs: initialStats.pendingJobs,
+        completedJobs: initialStats.completedJobs,
+        failedJobs: initialStats.failedJobs
+      });
 
       if (initialStats.pendingJobs === 0) {
-        console.log('[cron] No jobs in queue, nothing to process');
+        logger.info('CRON_EMPTY_QUEUE', 'No jobs in queue, nothing to process', { cronSessionId });
+
+        // Periodically run cleanup during idle time
+        if (Math.random() < 0.1) { // 10% chance to run cleanup
+          logger.info('CRON_CLEANUP', 'Running periodic cleanup during idle time', { cronSessionId });
+          await performPeriodicCleanup(cronSessionId);
+        }
+
         return NextResponse.json({
           success: true,
           message: 'No jobs to process',
@@ -104,31 +129,125 @@ export async function POST(request: NextRequest) {
         const queueJob = await dequeueJob();
         if (!queueJob) break;
 
+        // Check if this is a retry job that's not ready yet
+        const jobCreated = new Date(queueJob.createdAt).getTime();
+        if (jobCreated > Date.now()) {
+          logger.info('CRON_DELAYED_JOB', 'Job not ready for processing yet, re-queuing', {
+            cronSessionId,
+            jobId: queueJob.jobId,
+            scheduledFor: queueJob.createdAt
+          });
+          // TODO: Re-queue the job - for now we'll skip it
+          continue;
+        }
+
         jobsToProcess.push(queueJob.jobId);
         processedJobs++;
       }
 
-      console.log(`[cron] Dequeued ${jobsToProcess.length} jobs for processing`);
+      logger.info('CRON_BATCH_START', `Starting batch processing`, {
+        cronSessionId,
+        batchSize: jobsToProcess.length,
+        jobIds: jobsToProcess
+      });
 
       if (jobsToProcess.length === 0) {
         return NextResponse.json({
           success: true,
-          message: 'No jobs dequeued (queue may be empty)',
+          message: 'No jobs dequeued (queue may be empty or jobs not ready)',
           processingTime: Date.now() - startTime
         });
       }
 
-      // Process the batch of jobs
-      console.log(`[cron] Starting batch processing of ${jobsToProcess.length} jobs`);
-      const results = await processJobBatch(jobsToProcess);
+      // Process jobs individually with enhanced error handling
+      const results = [];
+      for (const jobId of jobsToProcess) {
+        const jobStartTime = Date.now();
 
-      // Count results
-      successfulJobs = results.filter(r => r.success).length;
-      failedJobs = results.filter(r => !r.success).length;
+        try {
+          logger.jobStart(jobId, {});
 
-      console.log(`[cron] Batch complete: ${successfulJobs} successful, ${failedJobs} failed`);
+          const result = await processJobBatch([jobId]);
+          const jobResult = result[0];
 
-      // Update statistics
+          if (jobResult.success) {
+            successfulJobs++;
+            logger.jobComplete(jobId, Date.now() - jobStartTime, jobResult.result);
+
+            // Update metrics for successful job
+            await updateJobMetrics({
+              success: true,
+              processingTimeMs: Date.now() - jobStartTime
+            });
+          } else {
+            // Job failed - determine if it should be retried
+            const jobMetadata = await import('@/lib/jobs/queue').then(m => m.getJobMetadata(jobId));
+
+            if (jobMetadata && jobResult.retryable) {
+              const wasRetried = await scheduleJobRetry(
+                jobMetadata,
+                jobResult.error || 'Unknown error',
+                Date.now() - jobStartTime
+              );
+
+              if (wasRetried) {
+                retriedJobs++;
+                logger.info('CRON_JOB_RETRIED', `Job ${jobId} scheduled for retry`, {
+                  cronSessionId,
+                  jobId,
+                  retryCount: (jobMetadata.error?.retryCount || 0) + 1
+                });
+              } else {
+                deadLetterJobs++;
+                logger.jobDeadLetter(
+                  jobId,
+                  jobMetadata.error?.retryCount || 0,
+                  jobResult.error || 'Unknown error'
+                );
+              }
+            } else {
+              failedJobs++;
+              logger.jobFailed(
+                jobId,
+                jobResult.error || 'Unknown error',
+                Date.now() - jobStartTime,
+                0
+              );
+            }
+
+            // Update metrics for failed job
+            await updateJobMetrics({
+              success: false,
+              processingTimeMs: Date.now() - jobStartTime,
+              errorType: jobResult.error?.split(':')[0] || 'unknown_error'
+            });
+          }
+
+          results.push(jobResult);
+
+        } catch (jobError) {
+          failedJobs++;
+          const errorMessage = jobError instanceof Error ? jobError.message : 'Unknown processing error';
+
+          logger.jobFailed(jobId, errorMessage, Date.now() - jobStartTime, 0);
+
+          results.push({
+            jobId,
+            success: false,
+            error: errorMessage,
+            retryable: true
+          });
+
+          // Update metrics for processing error
+          await updateJobMetrics({
+            success: false,
+            processingTimeMs: Date.now() - jobStartTime,
+            errorType: 'processing_error'
+          });
+        }
+      }
+
+      // Update final statistics
       await updateStats({
         completedJobs: initialStats.completedJobs + successfulJobs,
         failedJobs: initialStats.failedJobs + failedJobs
@@ -138,7 +257,20 @@ export async function POST(request: NextRequest) {
       const finalStats = await getQueueStats();
       const processingTime = Date.now() - startTime;
 
-      console.log(`[cron] Cron run completed in ${processingTime}ms`);
+      logger.info('CRON_BATCH_COMPLETE', 'Cron batch processing completed', {
+        cronSessionId,
+        processingTime,
+        processed: processedJobs,
+        successful: successfulJobs,
+        failed: failedJobs,
+        retried: retriedJobs,
+        deadLetter: deadLetterJobs
+      });
+
+      logger.metric('CRON_BATCH', 'processing_time_ms', processingTime, 'milliseconds', { cronSessionId });
+      logger.metric('CRON_BATCH', 'jobs_processed', processedJobs, 'count', { cronSessionId });
+      logger.metric('CRON_BATCH', 'jobs_successful', successfulJobs, 'count', { cronSessionId });
+      logger.metric('CRON_BATCH', 'jobs_failed', failedJobs, 'count', { cronSessionId });
 
       return NextResponse.json({
         success: true,
@@ -146,40 +278,89 @@ export async function POST(request: NextRequest) {
         results: {
           processed: processedJobs,
           successful: successfulJobs,
-          failed: failedJobs
+          failed: failedJobs,
+          retried: retriedJobs,
+          deadLetter: deadLetterJobs
         },
         stats: {
           before: initialStats,
           after: finalStats
         },
-        processingTime
+        processingTime,
+        cronSessionId
       });
 
     } finally {
       // Always release the processing lock
       await releaseProcessingLock();
-      console.log('[cron] Processing lock released');
+      logger.info('CRON_LOCK_RELEASED', 'Processing lock released', { cronSessionId });
     }
 
   } catch (error) {
     const processingTime = Date.now() - startTime;
-    console.error(`[cron] Fatal error during job processing after ${processingTime}ms:`, error);
+    logger.error('CRON_FATAL_ERROR', 'Fatal error during job processing', error as Error, {
+      cronSessionId,
+      processingTime
+    });
 
     // Make sure to release lock on error
     try {
       await releaseProcessingLock();
     } catch (lockError) {
-      console.error('[cron] Failed to release processing lock:', lockError);
+      logger.error('CRON_LOCK_ERROR', 'Failed to release processing lock', lockError as Error, {
+        cronSessionId
+      });
     }
 
     return NextResponse.json(
       {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
-        processingTime
+        processingTime,
+        cronSessionId
       },
       { status: 500 }
     );
+  }
+}
+
+/**
+ * Perform periodic cleanup during idle time
+ */
+async function performPeriodicCleanup(cronSessionId: string) {
+  try {
+    const cleanupLockAcquired = await acquireCleanupLock(60000); // 1 minute lock
+    if (!cleanupLockAcquired) {
+      logger.info('CRON_CLEANUP_SKIP', 'Cleanup already running, skipping', { cronSessionId });
+      return;
+    }
+
+    try {
+      // Clean up jobs older than 7 days
+      const cleanupResult = await cleanupOldJobs(7);
+
+      logger.info('CRON_CLEANUP_COMPLETE', 'Periodic cleanup completed', {
+        cronSessionId,
+        cleanedJobs: cleanupResult.cleanedJobs,
+        cleanedBlobs: cleanupResult.cleanedBlobs,
+        errors: cleanupResult.errors.length
+      });
+
+      if (cleanupResult.errors.length > 0) {
+        logger.warn('CRON_CLEANUP_ERRORS', 'Cleanup completed with errors', {
+          cronSessionId,
+          errors: cleanupResult.errors.slice(0, 5) // Log first 5 errors
+        });
+      }
+
+    } finally {
+      await releaseCleanupLock();
+    }
+
+  } catch (cleanupError) {
+    logger.error('CRON_CLEANUP_ERROR', 'Periodic cleanup failed', cleanupError as Error, {
+      cronSessionId
+    });
   }
 }
 

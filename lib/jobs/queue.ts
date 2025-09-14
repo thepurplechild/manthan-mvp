@@ -11,6 +11,7 @@ import {
   JobMetadata,
   QueueJob,
   IngestionStats,
+  DeadLetterJob,
   KV_KEYS,
   JOB_PRIORITIES,
   MAX_RETRY_ATTEMPTS,
@@ -68,13 +69,6 @@ export async function dequeueJob(): Promise<QueueJob | null> {
   return job;
 }
 
-/**
- * Get job metadata from KV store
- */
-export async function getJobMetadata(jobId: string): Promise<JobMetadata | null> {
-  const metadata = await kv.hgetall(KV_KEYS.JOB_STATUS(jobId));
-  return metadata as JobMetadata | null;
-}
 
 /**
  * Update job status and metadata
@@ -241,19 +235,6 @@ export async function updateStats(updates: Partial<IngestionStats>): Promise<voi
   await kv.hset(KV_KEYS.STATS, updated);
 }
 
-/**
- * Clean up old job data (for maintenance)
- */
-export async function cleanupOldJobs(olderThanDays: number = 7): Promise<number> {
-  const cutoff = new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000).toISOString();
-  const cleaned = 0;
-
-  // This is a simplified cleanup - in production you'd use job timestamps
-  // and potentially scan through job keys more efficiently
-  console.log(`[queue] Cleanup would remove jobs older than ${cutoff}`);
-
-  return cleaned;
-}
 
 /**
  * Acquire processing lock to prevent concurrent processing
@@ -276,4 +257,261 @@ export async function acquireProcessingLock(ttlSeconds: number = 300): Promise<b
  */
 export async function releaseProcessingLock(): Promise<void> {
   await kv.del(KV_KEYS.PROCESSING_LOCK);
+}
+
+/**
+ * Calculate exponential backoff delay for retry
+ */
+export function calculateRetryDelay(retryCount: number): number {
+  const baseDelaySeconds = RETRY_DELAY_BASE;
+  const maxDelaySeconds = 3600; // 1 hour max
+  const jitterFactor = 0.1; // Add 10% jitter to prevent thundering herd
+
+  const exponentialDelay = baseDelaySeconds * Math.pow(2, retryCount);
+  const cappedDelay = Math.min(exponentialDelay, maxDelaySeconds);
+  const jitter = cappedDelay * jitterFactor * Math.random();
+
+  return cappedDelay + jitter;
+}
+
+/**
+ * Move job to dead letter queue
+ */
+export async function moveToDeadLetterQueue(
+  jobMetadata: JobMetadata,
+  processingHistory: Array<{
+    attemptNumber: number;
+    failedAt: string;
+    error: string;
+    processingTimeMs?: number;
+  }>
+): Promise<void> {
+  const deadLetterJob: DeadLetterJob = {
+    originalJob: jobMetadata,
+    failureInfo: {
+      totalRetries: jobMetadata.error?.retryCount || 0,
+      lastError: jobMetadata.error?.message || 'Unknown error',
+      failedAt: new Date().toISOString(),
+      processingHistory
+    },
+    debugInfo: {
+      memoryUsage: process.memoryUsage(),
+      nodeVersion: process.version,
+      vercelRegion: process.env.VERCEL_REGION || 'unknown'
+    }
+  };
+
+  // Add to dead letter queue
+  await kv.lpush(KV_KEYS.DEAD_LETTER_QUEUE, JSON.stringify(deadLetterJob));
+
+  // Update job status to dead_letter
+  const updatedJob: JobMetadata = {
+    ...jobMetadata,
+    status: 'dead_letter',
+    completedAt: new Date().toISOString()
+  };
+
+  await kv.hset(KV_KEYS.JOB_STATUS(jobMetadata.jobId), updatedJob as unknown as Record<string, unknown>);
+
+  console.log(`[queue] Moved job ${jobMetadata.jobId} to dead letter queue after ${deadLetterJob.failureInfo.totalRetries} retries`);
+}
+
+/**
+ * Get dead letter jobs with pagination
+ */
+export async function getDeadLetterJobs(
+  page: number = 1,
+  pageSize: number = 50
+): Promise<{ jobs: DeadLetterJob[]; totalCount: number }> {
+  const start = (page - 1) * pageSize;
+  const end = start + pageSize - 1;
+
+  // Get paginated dead letter jobs
+  const jobsData = await kv.lrange(KV_KEYS.DEAD_LETTER_QUEUE, start, end);
+  const jobs = jobsData.map(data => JSON.parse(data) as DeadLetterJob);
+
+  // Get total count
+  const totalCount = await kv.llen(KV_KEYS.DEAD_LETTER_QUEUE);
+
+  return { jobs, totalCount };
+}
+
+/**
+ * Retry job with exponential backoff
+ */
+export async function scheduleJobRetry(
+  jobMetadata: JobMetadata,
+  error: string,
+  processingTimeMs?: number
+): Promise<boolean> {
+  const currentRetryCount = (jobMetadata.error?.retryCount || 0) + 1;
+
+  // Check if we've exceeded max retries
+  if (currentRetryCount > MAX_RETRY_ATTEMPTS) {
+    // Add to processing history for dead letter queue
+    const processingHistory = [
+      {
+        attemptNumber: currentRetryCount,
+        failedAt: new Date().toISOString(),
+        error,
+        processingTimeMs
+      }
+    ];
+
+    await moveToDeadLetterQueue(jobMetadata, processingHistory);
+    return false;
+  }
+
+  // Calculate retry delay
+  const retryDelaySeconds = calculateRetryDelay(currentRetryCount - 1);
+  const retryAt = new Date(Date.now() + (retryDelaySeconds * 1000));
+
+  // Update job metadata with retry info
+  const updatedJob: JobMetadata = {
+    ...jobMetadata,
+    status: 'retrying',
+    error: {
+      type: jobMetadata.error?.type || 'processing_error',
+      message: error,
+      retryable: true,
+      retryCount: currentRetryCount,
+      lastRetryAt: new Date().toISOString()
+    }
+  };
+
+  // Store updated job metadata
+  await kv.hset(KV_KEYS.JOB_STATUS(jobMetadata.jobId), updatedJob as unknown as Record<string, unknown>);
+
+  // Re-queue the job with delayed execution
+  const queueJob: QueueJob = {
+    jobId: jobMetadata.jobId,
+    priority: JOB_PRIORITIES[jobMetadata.options.priority],
+    createdAt: retryAt.toISOString(),
+    retryCount: currentRetryCount
+  };
+
+  // Use timestamp as score for delayed processing
+  await kv.zadd(KV_KEYS.QUEUE, {
+    score: retryAt.getTime(),
+    member: JSON.stringify(queueJob)
+  });
+
+  console.log(`[queue] Scheduled job ${jobMetadata.jobId} for retry #${currentRetryCount} in ${Math.round(retryDelaySeconds)} seconds`);
+  return true;
+}
+
+/**
+ * Clean up old completed jobs and associated blob storage
+ */
+export async function cleanupOldJobs(olderThanDays: number = 7): Promise<{
+  cleanedJobs: number;
+  cleanedBlobs: number;
+  errors: string[];
+}> {
+  const cutoffTime = Date.now() - (olderThanDays * 24 * 60 * 60 * 1000);
+  const errors: string[] = [];
+  let cleanedJobs = 0;
+  let cleanedBlobs = 0;
+
+  try {
+    // Get all job keys
+    const jobKeys = await kv.keys('ingestion:job:*');
+
+    for (const jobKey of jobKeys) {
+      try {
+        const jobData = await kv.hgetall(jobKey) as Record<string, string>;
+        if (!jobData || !jobData.completedAt) continue;
+
+        const completedAt = new Date(jobData.completedAt).getTime();
+        if (completedAt > cutoffTime) continue;
+
+        // Only clean up completed or failed jobs, not dead letter ones
+        if (jobData.status === 'completed' || jobData.status === 'failed') {
+          // Clean up blob storage if exists
+          if (jobData.file) {
+            try {
+              const fileData = JSON.parse(jobData.file);
+              if (fileData.blobUrl) {
+                await fetch(fileData.blobUrl, { method: 'DELETE' });
+                cleanedBlobs++;
+              }
+            } catch (blobError) {
+              errors.push(`Failed to clean blob for job ${jobKey}: ${blobError}`);
+            }
+          }
+
+          // Remove job metadata
+          await kv.del(jobKey);
+          cleanedJobs++;
+        }
+      } catch (jobError) {
+        errors.push(`Failed to process job ${jobKey}: ${jobError}`);
+      }
+    }
+
+    console.log(`[cleanup] Cleaned up ${cleanedJobs} old jobs and ${cleanedBlobs} blobs`);
+    return { cleanedJobs, cleanedBlobs, errors };
+
+  } catch (error) {
+    const errorMessage = `Cleanup failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
+    console.error(`[cleanup] ${errorMessage}`);
+    errors.push(errorMessage);
+    return { cleanedJobs, cleanedBlobs, errors };
+  }
+}
+
+/**
+ * Acquire cleanup lock to prevent concurrent cleanup operations
+ */
+export async function acquireCleanupLock(timeoutMs: number = 300000): Promise<boolean> {
+  const lockKey = KV_KEYS.CLEANUP_LOCK;
+  const lockValue = `cleanup_${Date.now()}`;
+  const expireTime = Math.floor(timeoutMs / 1000);
+
+  const result = await kv.set(lockKey, lockValue, {
+    px: timeoutMs,
+    nx: true
+  });
+
+  return result === 'OK';
+}
+
+/**
+ * Release cleanup lock
+ */
+export async function releaseCleanupLock(): Promise<void> {
+  await kv.del(KV_KEYS.CLEANUP_LOCK);
+}
+
+/**
+ * Get job metadata by job ID
+ */
+export async function getJobMetadata(jobId: string): Promise<JobMetadata | null> {
+  try {
+    const jobData = await kv.hgetall(KV_KEYS.JOB_STATUS(jobId)) as Record<string, string>;
+
+    if (!jobData || Object.keys(jobData).length === 0) {
+      return null;
+    }
+
+    // Parse the job metadata from KV storage
+    const metadata: JobMetadata = {
+      jobId: jobData.jobId,
+      status: jobData.status as JobMetadata['status'],
+      file: JSON.parse(jobData.file || '{}'),
+      options: JSON.parse(jobData.options || '{}'),
+      createdAt: jobData.createdAt,
+      startedAt: jobData.startedAt,
+      completedAt: jobData.completedAt,
+      progress: JSON.parse(jobData.progress || '{}'),
+      error: jobData.error ? JSON.parse(jobData.error) : undefined,
+      result: jobData.result ? JSON.parse(jobData.result) : undefined
+    };
+
+    return metadata;
+
+  } catch (error) {
+    console.error(`[queue] Failed to get job metadata for ${jobId}:`, error);
+    return null;
+  }
 }

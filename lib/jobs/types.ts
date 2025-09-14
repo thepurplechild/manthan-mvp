@@ -5,7 +5,7 @@
  * Vercel Blob for storage, KV for queuing, and cron for processing.
  */
 
-export type JobStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'retrying';
+export type JobStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'retrying' | 'dead_letter';
 
 export interface JobMetadata {
   /** Unique job identifier */
@@ -75,6 +75,8 @@ export interface JobProcessingResult {
   error?: string;
   shouldRetry?: boolean;
   retryAfter?: number; // seconds
+  retryable?: boolean;
+  result?: unknown; // Processing result data
 }
 
 // Job queue management
@@ -95,7 +97,11 @@ export const KV_KEYS = {
   QUEUE: 'ingestion:queue',
   JOB_STATUS: (jobId: string) => `ingestion:job:${jobId}`,
   PROCESSING_LOCK: 'ingestion:processing:lock',
-  STATS: 'ingestion:stats'
+  STATS: 'ingestion:stats',
+  DEAD_LETTER_QUEUE: 'ingestion:dlq',
+  METRICS: 'ingestion:metrics',
+  HEALTH: 'ingestion:health',
+  CLEANUP_LOCK: 'ingestion:cleanup:lock'
 } as const;
 
 export interface IngestionStats {
@@ -104,6 +110,7 @@ export interface IngestionStats {
   failedJobs: number;
   pendingJobs: number;
   lastProcessedAt: string;
+  oldestJobCreated?: string;
 }
 
 // API Response types
@@ -144,6 +151,110 @@ export interface JobStatusResponse {
 }
 
 export interface JobStatusError {
+  success: false;
+  error: {
+    type: string;
+    message: string;
+  };
+}
+
+// Dead Letter Queue Types
+export interface DeadLetterJob {
+  /** Original job metadata */
+  originalJob: JobMetadata;
+
+  /** Failure details */
+  failureInfo: {
+    totalRetries: number;
+    lastError: string;
+    failedAt: string;
+    processingHistory: Array<{
+      attemptNumber: number;
+      failedAt: string;
+      error: string;
+      processingTimeMs?: number;
+    }>;
+  };
+
+  /** Debugging information */
+  debugInfo: {
+    memoryUsage?: NodeJS.MemoryUsage;
+    systemLoad?: number;
+    nodeVersion: string;
+    vercelRegion?: string;
+  };
+}
+
+// Job Metrics and Monitoring Types
+export interface JobMetrics {
+  /** Processing statistics */
+  totalJobs: number;
+  successfulJobs: number;
+  failedJobs: number;
+  retriedJobs: number;
+  deadLetterJobs: number;
+
+  /** Timing metrics */
+  averageProcessingTime: number;
+  medianProcessingTime: number;
+  p95ProcessingTime: number;
+
+  /** Queue metrics */
+  currentQueueSize: number;
+  oldestJobAge: number; // in milliseconds
+
+  /** Error patterns */
+  commonErrors: Array<{
+    errorType: string;
+    count: number;
+    lastSeen: string;
+  }>;
+
+  /** System health */
+  lastProcessedAt: string;
+  systemHealth: 'healthy' | 'degraded' | 'unhealthy';
+  uptime: number; // in milliseconds
+}
+
+export interface HealthCheckResponse {
+  status: 'healthy' | 'degraded' | 'unhealthy';
+  timestamp: string;
+  version: string;
+  metrics: JobMetrics;
+  checks: {
+    kvConnection: boolean;
+    blobAccess: boolean;
+    queueProcessing: boolean;
+    cronJobActive: boolean;
+  };
+  alerts?: Array<{
+    level: 'warning' | 'error' | 'critical';
+    message: string;
+    component: string;
+    timestamp: string;
+  }>;
+}
+
+// Admin Interface Types
+export interface AdminJobsResponse {
+  success: true;
+  data: {
+    deadLetterJobs: DeadLetterJob[];
+    totalCount: number;
+    pagination: {
+      page: number;
+      pageSize: number;
+      totalPages: number;
+    };
+    filters?: {
+      dateRange?: [string, string];
+      errorType?: string;
+      originalStatus?: JobStatus;
+    };
+  };
+}
+
+export interface AdminJobsError {
   success: false;
   error: {
     type: string;
