@@ -1,16 +1,22 @@
 import Anthropic from '@anthropic-ai/sdk'
 import pRetry, { AbortError } from 'p-retry'
-import { env } from '@/lib/env'
+import { getServerEnv } from '@/lib/env'
 
-export const anthropic = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY })
+let _anthropic: Anthropic | null = null
+function getAnthropic(): Anthropic {
+  if (_anthropic) return _anthropic
+  const env = getServerEnv()
+  _anthropic = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY })
+  return _anthropic
+}
 
 export type ClaudeResult = { text: string }
 
 export async function callClaudeSafe(prompt: string, system?: string, maxTokens = 1500): Promise<ClaudeResult> {
   return pRetry(async () => {
     try {
-      const msg = await anthropic.messages.create({
-        model: env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20240620',
+      const msg = await getAnthropic().messages.create({
+        model: 'claude-3-5-sonnet-20240620',
         max_tokens: Math.max(256, Math.min(2000, maxTokens)),
         temperature: 0.2,
         system: system || 'You are a precise assistant. Respond in strict JSON when asked.',
@@ -35,4 +41,3 @@ export function safeParseJSON<T = any>(text: string): T | null {
     return null
   }
 }
-

@@ -1,13 +1,15 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
-import { env } from '@/lib/env'
+import { getServerEnv } from '@/lib/env'
 
 let admin: SupabaseClient | null = null
 
 export function getAdminClient(): SupabaseClient {
   if (admin) return admin
-  admin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+  const env = getServerEnv()
+  // NEXT_PUBLIC_SUPABASE_URL is safe to read directly; server validator checks service key
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL as string
+  admin = createClient(url, env.SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   })
   return admin
 }
-
