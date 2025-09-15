@@ -7,6 +7,8 @@
 
 import { ingestFile } from '@/lib/ingestion/core';
 import { IngestionOptions, IngestionProgress } from '@/lib/ingestion/types';
+// Import modular processor system for enhanced file processing
+import { ingestFileWithModularSystem } from '@/lib/processors/integration';
 import {
   JobProcessingResult,
   JOB_TIMEOUT
@@ -105,15 +107,32 @@ export async function processJob(jobId: string): Promise<JobProcessingResult> {
       });
     };
 
-    // Process the file through the core ingestion engine
-    console.log(`[processor] Processing ${jobMetadata.file.name} with core ingestion`);
-    const ingestionResult = await ingestFile(
-      jobMetadata.file.name,
-      fileBuffer,
-      jobMetadata.file.type,
-      options,
-      progressCallback
-    );
+    // Check if we should use the modular processor system
+    const useModularSystem = process.env.USE_MODULAR_PROCESSORS === 'true' ||
+                             jobMetadata.options.useModularProcessors;
+
+    let ingestionResult;
+
+    if (useModularSystem) {
+      console.log(`[processor] Processing ${jobMetadata.file.name} with modular processor system`);
+      ingestionResult = await ingestFileWithModularSystem(
+        jobMetadata.file.name,
+        fileBuffer,
+        jobMetadata.file.type,
+        options,
+        progressCallback
+      );
+    } else {
+      // Process the file through the core ingestion engine (legacy)
+      console.log(`[processor] Processing ${jobMetadata.file.name} with core ingestion`);
+      ingestionResult = await ingestFile(
+        jobMetadata.file.name,
+        fileBuffer,
+        jobMetadata.file.type,
+        options,
+        progressCallback
+      );
+    }
 
     const processingTime = Date.now() - startTime;
 
