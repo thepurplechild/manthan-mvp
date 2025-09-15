@@ -6,6 +6,9 @@ const nextConfig: NextConfig = {
 
   // Moved out of experimental.* (current Next supports top-level)  
   typedRoutes: true,
+  
+  // Fix cross-origin request issues for authentication
+  allowedDevOrigins: ["127.0.0.1", "localhost"],
 
 
 
