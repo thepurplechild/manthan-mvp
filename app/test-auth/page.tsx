@@ -87,7 +87,7 @@ export default function AuthTestPage() {
     clearMessages();
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(testEmail, {
-        redirectTo: `${window.location.origin}/auth/reset-password`,
+        redirectTo: `${window.location.origin}/auth/update-password`,
       });
 
       if (error) throw error;
@@ -118,6 +118,44 @@ export default function AuthTestPage() {
     } catch (err: any) {
       setError(`❌ Session check failed: ${err.message}`);
     }
+  };
+
+  const testEnvironment = () => {
+    clearMessages();
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    
+    let envReport = '🔧 Environment Configuration:\n\n';
+    
+    // Check URL
+    if (!url) {
+      envReport += '❌ NEXT_PUBLIC_SUPABASE_URL: Missing\n';
+    } else if (!url.includes('supabase.co')) {
+      envReport += `❌ NEXT_PUBLIC_SUPABASE_URL: Invalid format (${url.substring(0, 30)}...)\n`;
+    } else {
+      const projectMatch = url.match(/https:\/\/([^.]+)\.supabase\.co/);
+      const projectId = projectMatch ? projectMatch[1] : 'unknown';
+      envReport += `✅ NEXT_PUBLIC_SUPABASE_URL: OK (Project: ${projectId})\n`;
+      if (projectId !== 'wywshqihyhukpzamilam') {
+        envReport += `⚠️  Expected project ID: wywshqihyhukpzamilam\n`;
+      }
+    }
+    
+    // Check Key
+    if (!key) {
+      envReport += '❌ NEXT_PUBLIC_SUPABASE_ANON_KEY: Missing\n';
+    } else if (!key.startsWith('eyJ')) {
+      envReport += `❌ NEXT_PUBLIC_SUPABASE_ANON_KEY: Invalid format\n`;
+    } else {
+      envReport += `✅ NEXT_PUBLIC_SUPABASE_ANON_KEY: OK (${key.substring(0, 20)}...)\n`;
+    }
+    
+    // Check current domain
+    envReport += `\n🌐 Current Domain: ${window.location.origin}\n`;
+    envReport += `📧 Email redirect: ${window.location.origin}/auth/confirm\n`;
+    envReport += `🔄 Password reset: ${window.location.origin}/auth/update-password\n`;
+    
+    setMessage(envReport);
   };
 
   if (loading) {
@@ -221,7 +259,7 @@ export default function AuthTestPage() {
             </div>
 
             {/* Action Buttons */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
               <Button
                 onClick={testSignUp}
                 className="bg-manthan-saffron-600 hover:bg-manthan-saffron-700 text-white"
@@ -253,6 +291,12 @@ export default function AuthTestPage() {
                 className="border-manthan-charcoal-600 text-white hover:bg-manthan-charcoal-700"
               >
                 📊 Check State
+              </Button>
+              <Button
+                onClick={testEnvironment}
+                className="bg-manthan-charcoal-600 hover:bg-manthan-charcoal-700 text-white"
+              >
+                🔧 Check Config
               </Button>
             </div>
           </CardContent>
