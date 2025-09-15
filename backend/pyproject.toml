@@ -3,8 +3,6 @@ name = "manthan-backend"
 version = "0.1.0"
 description = "FastAPI backend for the Manthan MVP"
 authors = ["Ambar Walia <ambar@projectmanthan.com>"]
-# Disable packaging; we just want dependency management here
-package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.11"
