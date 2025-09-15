@@ -4,8 +4,9 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   reactStrictMode: true,
 
-  // Moved out of experimental.* (current Next supports top-level)
+  // Moved out of experimental.* (current Next supports top-level)  
   typedRoutes: true,
+
 
 
   webpack: (config, { isServer }) => {
