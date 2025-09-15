@@ -267,7 +267,8 @@ export class SecurityScanner {
           break;
 
         case 'hash':
-          const hash = require('crypto').createHash('sha256').update(buffer).digest('hex');
+          const crypto = await import('crypto');
+          const hash = crypto.createHash('sha256').update(buffer).digest('hex');
           detected = hash === pattern.pattern;
           if (detected) {
             evidence = [`File hash matches known threat: ${hash}`];

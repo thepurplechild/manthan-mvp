@@ -471,9 +471,11 @@ export function resetPerformanceMonitor(): void {
  * Performance monitoring decorator for functions
  */
 export function monitorPerformance(operationId?: string) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return function (target: any, propertyName: string, descriptor: PropertyDescriptor) {
     const method = descriptor.value;
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     descriptor.value = async function (...args: any[]) {
       const monitor = getPerformanceMonitor();
       const startTime = Date.now();

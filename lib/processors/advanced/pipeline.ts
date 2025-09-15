@@ -601,6 +601,7 @@ export class ProcessingPipeline {
         const resultCheck = condition.match(/results\.(\w+)\.(\w+)\s*([><=!]+)\s*(.+)/);
         if (resultCheck) {
           const [, stepName, property, operator, value] = resultCheck;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const stepResult = context.results.get(stepName) as any;
           if (stepResult && stepResult[property] !== undefined) {
             return this.compareValues(stepResult[property], operator, value);
@@ -619,6 +620,7 @@ export class ProcessingPipeline {
   /**
    * Compare values for condition evaluation
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private compareValues(left: any, operator: string, right: string): boolean {
     const rightValue = isNaN(Number(right)) ? right.replace(/['"]/g, '') : Number(right);
 
