@@ -7,6 +7,13 @@ const nextConfig: NextConfig = {
   // Moved out of experimental.* (current Next supports top-level)
   typedRoutes: true,
 
+  // Replit environment configuration - allow all hosts for proxy support
+  ...(process.env.NODE_ENV === 'development' && {
+    experimental: {
+      allowedRevalidateHeaderKeys: ['*'],
+    },
+  }),
+
   webpack: (config, { isServer }) => {
     // 1) Emit pdf.js worker files as asset URLs so dynamic import returns a string
     config.module.rules.push({
