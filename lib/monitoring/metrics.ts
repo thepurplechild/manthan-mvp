@@ -21,7 +21,7 @@ export interface ProcessingMetric {
   cpuUsagePercent: number;
   correlationId: string;
   userId?: string;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
 export interface AggregatedMetrics {
@@ -505,9 +505,11 @@ export function collectMetrics(
   operationType: ProcessingMetric['operationType'],
   fileType?: SupportedFileType
 ) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return function (target: any, propertyName: string, descriptor: PropertyDescriptor) {
     const method = descriptor.value;
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     descriptor.value = async function (...args: any[]) {
       const metricsCollector = getMetricsCollector();
       const startTime = Date.now();

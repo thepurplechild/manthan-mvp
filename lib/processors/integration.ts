@@ -116,6 +116,7 @@ export class ProcessorIntegrationAdapter {
         processingTime: processingResult.metadata.processingTime,
         fileSize: fileBuffer.length,
         contentLength: processingResult.textContent.length,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         processor: (processingResult as any).processor || 'unknown'
       };
 
@@ -223,6 +224,7 @@ export class ProcessorIntegrationAdapter {
    * Convert processor metadata to the format expected by the existing system
    */
   private convertMetadata(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     processorMetadata: any,
     filename: string,
     content: string

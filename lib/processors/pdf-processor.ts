@@ -16,6 +16,7 @@ import {
 import { IngestionProgressCallback, IngestionWarning } from '@/lib/ingestion/types';
 
 // PDF.js types for OCR fallback
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 interface PDFDocument {
   numPages: number;
   getPage: (pageNum: number) => Promise<PDFPage>;
@@ -353,7 +354,7 @@ export class PdfProcessor extends BaseProcessor {
 
       return ocrText.trim();
 
-    } catch (error) {
+    } catch (_error) {
       warnings?.push(this.createWarning(
         'format_compatibility',
         'OCR fallback failed while processing PDF pages',
@@ -371,6 +372,7 @@ export class PdfProcessor extends BaseProcessor {
    * Load PDF.js library with proper configuration
    */
   private async loadPdfjsLibrary() {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const pdfjs = await import('pdfjs-dist/build/pdf.min.mjs') as any;
 
     if (pdfjs?.GlobalWorkerOptions) {

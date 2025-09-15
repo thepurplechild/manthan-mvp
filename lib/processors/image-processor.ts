@@ -306,7 +306,7 @@ export class ImageProcessor extends BaseProcessor {
             entropy: stats.entropy,
             sharpness: stats.sharpness
           };
-        } catch (error) {
+        } catch (_error) {
           warnings.push(this.createWarning(
             'partial_extraction',
             'Could not perform color analysis',
@@ -392,7 +392,7 @@ export class ImageProcessor extends BaseProcessor {
             .sharpen()
             .png()
             .toBuffer();
-        } catch (error) {
+        } catch (_error) {
           warnings?.push(this.createWarning(
             'partial_extraction',
             'Image preprocessing for OCR failed, using original image',
@@ -443,7 +443,7 @@ export class ImageProcessor extends BaseProcessor {
 
       return cleanedText;
 
-    } catch (error) {
+    } catch (_error) {
       warnings?.push(this.createWarning(
         'format_compatibility',
         'OCR processing failed',
@@ -464,7 +464,7 @@ export class ImageProcessor extends BaseProcessor {
     if (!text) return '';
 
     // Remove excessive whitespace and normalize line breaks
-    let cleaned = text.replace(/\s+/g, ' ').trim();
+    const cleaned = text.replace(/\s+/g, ' ').trim();
 
     // Remove very short "words" that are likely noise
     const words = cleaned.split(' ').filter(word =>
@@ -486,6 +486,7 @@ export class ImageProcessor extends BaseProcessor {
   /**
    * Estimate image complexity for processing hints
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private estimateImageComplexity(metadata: any, fileSize: number): string {
     const pixels = (metadata.width || 0) * (metadata.height || 0);
     const bytesPerPixel = pixels > 0 ? fileSize / pixels : 0;
@@ -498,6 +499,7 @@ export class ImageProcessor extends BaseProcessor {
   /**
    * Detect image type/purpose based on characteristics
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private detectImageType(metadata: any, fileSize: number): string {
     const width = metadata.width || 0;
     const height = metadata.height || 0;

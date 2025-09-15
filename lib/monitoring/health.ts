@@ -25,7 +25,7 @@ export interface HealthCheckResult {
   message: string;
   timestamp: Date;
   duration: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   error?: string;
 }
 
@@ -52,7 +52,7 @@ export interface HealthAlert {
   acknowledged: boolean;
   resolvedAt?: Date;
   escalated: boolean;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface AlertingConfig {
@@ -429,9 +429,9 @@ export class HealthMonitor {
       enabled: true,
       check: async () => {
         try {
-          const fs = require('fs').promises;
-          const path = require('path');
-          const os = require('os');
+          const fs = await import('fs/promises');
+          const path = await import('path');
+          const os = await import('os');
 
           // Test file write/read/delete
           const testFile = path.join(os.tmpdir(), `health_check_${Date.now()}.txt`);
@@ -483,7 +483,7 @@ export class HealthMonitor {
         try {
           // This would check actual external dependencies
           // For now, we'll simulate based on network connectivity
-          const https = require('https');
+          const https = await import('https');
 
           const checkUrl = (url: string): Promise<boolean> => {
             return new Promise((resolve) => {
@@ -546,7 +546,7 @@ export class HealthMonitor {
   private async runChecksWithDependencies(checks: HealthCheck[]): Promise<HealthCheckResult[]> {
     const results: HealthCheckResult[] = [];
     const completed = new Set<string>();
-    const checkMap = new Map(checks.map(check => [check.id, check]));
+    const _checkMap = new Map(checks.map(check => [check.id, check]));
 
     const runCheck = async (check: HealthCheck): Promise<void> => {
       // Wait for dependencies

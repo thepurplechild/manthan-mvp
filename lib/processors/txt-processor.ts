@@ -239,7 +239,7 @@ export class TxtProcessor extends BaseProcessor {
   /**
    * Analyze text structure and patterns
    */
-  private analyzeTextStructure(content: string, config: ProcessorConfig): Record<string, unknown> {
+  private analyzeTextStructure(content: string, _config: ProcessorConfig): Record<string, unknown> {
     const analysis: Record<string, unknown> = {};
 
     try {
@@ -380,7 +380,7 @@ export class TxtProcessor extends BaseProcessor {
     content: string,
     filename: string,
     config: ProcessorConfig,
-    analysis: Record<string, unknown>
+    _analysis: Record<string, unknown>
   ): Promise<Record<string, unknown>> {
     const metadata: Record<string, unknown> = {};
 
