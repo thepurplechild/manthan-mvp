@@ -1,4 +1,4 @@
-modules = ["nodejs-18", "web", "python-3.11"]
+modules = ["nodejs-18", "web", "python-3.11", "postgresql-16"]
 [agent]
 expertMode = true
 integrations = ["javascript_supabase:1.0.0", "javascript_anthropic:1.0.0"]
@@ -51,12 +51,16 @@ localPort = 5000
 externalPort = 80
 
 [[ports]]
-localPort = 43867
-externalPort = 3000
-
-[[ports]]
 localPort = 8000
 externalPort = 8000
+
+[[ports]]
+localPort = 41757
+externalPort = 3001
+
+[[ports]]
+localPort = 43867
+externalPort = 3000
 
 [deployment]
 deploymentTarget = "autoscale"
