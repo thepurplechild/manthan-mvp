@@ -97,7 +97,7 @@ export class JobLogger {
       jobId,
       processingTimeMs,
       processingTimeSeconds: Math.round(processingTimeMs / 1000 * 100) / 100,
-      resultType: (result as any)?.content?.contentType || 'unknown'
+      resultType: (result as JobMetadata['result'])?.contentType || 'unknown'
     });
 
     this.metric('JOB_PROCESSING', 'processing_time_ms', processingTimeMs, 'milliseconds', { jobId });
