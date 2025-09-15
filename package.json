@@ -19,7 +19,7 @@
     "deploy:check": "npm run validate:config && npm run build"
   },
   "engines": {
-    "node": ">=18.17.0",
+    "node": ">=20.0.0",
     "npm": ">=8.19.0"
   },
   "_securityNotes": {
