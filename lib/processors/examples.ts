@@ -5,12 +5,15 @@
  */
 
 import {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   ProcessorFactory,
   createProcessorFactory,
   getDefaultProcessorFactory,
   PdfProcessor,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   DocxProcessor,
   TxtProcessor,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   ImageProcessor,
   SupportedFileType,
   ProcessorConfig
@@ -137,6 +140,7 @@ export async function batchProcessingExample() {
     );
 
     console.log(`✅ Processed ${results.length} files`);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     results.forEach((result, index) => {
       if (result.success) {
         console.log(`  📄 ${result.filename}: ${result.textContent.length} chars (${result.processor})`);

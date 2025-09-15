@@ -297,6 +297,7 @@ export class ImageProcessor extends BaseProcessor {
         try {
           const stats = await image.stats();
           metadata.colorStats = {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             channels: stats.channels.map((channel: any) => ({
               min: channel.min,
               max: channel.max,
@@ -306,6 +307,7 @@ export class ImageProcessor extends BaseProcessor {
             entropy: stats.entropy,
             sharpness: stats.sharpness
           };
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         } catch (_error) {
           warnings.push(this.createWarning(
             'partial_extraction',
@@ -369,6 +371,7 @@ export class ImageProcessor extends BaseProcessor {
    */
   private async performImageOCR(
     buffer: Buffer,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     image: any, // sharp instance
     config: ProcessorConfig,
     progressCallback?: IngestionProgressCallback,
@@ -392,6 +395,7 @@ export class ImageProcessor extends BaseProcessor {
             .sharpen()
             .png()
             .toBuffer();
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         } catch (_error) {
           warnings?.push(this.createWarning(
             'partial_extraction',
@@ -443,6 +447,7 @@ export class ImageProcessor extends BaseProcessor {
 
       return cleanedText;
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (_error) {
       warnings?.push(this.createWarning(
         'format_compatibility',

@@ -354,6 +354,7 @@ export class PdfProcessor extends BaseProcessor {
 
       return ocrText.trim();
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (_error) {
       warnings?.push(this.createWarning(
         'format_compatibility',

@@ -239,6 +239,7 @@ export class TxtProcessor extends BaseProcessor {
   /**
    * Analyze text structure and patterns
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   private analyzeTextStructure(content: string, _config: ProcessorConfig): Record<string, unknown> {
     const analysis: Record<string, unknown> = {};
 
@@ -380,6 +381,7 @@ export class TxtProcessor extends BaseProcessor {
     content: string,
     filename: string,
     config: ProcessorConfig,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _analysis: Record<string, unknown>
   ): Promise<Record<string, unknown>> {
     const metadata: Record<string, unknown> = {};
