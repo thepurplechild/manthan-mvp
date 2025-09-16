@@ -87,33 +87,47 @@ async function resolveWorkerUrl(): Promise<string> {
 export async function loadPdfjs(): Promise<PdfJsLike> {
   if (cachedLib) return cachedLib;
 
-  const lib = await importPdfJs();
-  
-  // Add null checks to prevent "Cannot read properties of undefined" errors
-  if (!lib) {
-    throw new Error('Failed to load PDF.js library');
-  }
-  
-  if (!lib.GlobalWorkerOptions) {
-    throw new Error('PDF.js GlobalWorkerOptions not available');
-  }
-  
-  const isBrowser = typeof window !== "undefined" && typeof document !== "undefined";
-
-  if (isBrowser) {
-    try {
-      const workerUrl = await resolveWorkerUrl();
-      lib.GlobalWorkerOptions.workerSrc = workerUrl;
-    } catch (error) {
-      console.warn('Failed to resolve PDF worker URL:', error);
-      lib.GlobalWorkerOptions.workerSrc = "";
+  try {
+    const lib = await importPdfJs();
+    
+    // Add null checks to prevent "Cannot read properties of undefined" errors
+    if (!lib) {
+      throw new Error('Failed to load PDF.js library');
     }
-  } else {
-    lib.GlobalWorkerOptions.workerSrc = "";
-  }
+    
+    if (!lib.GlobalWorkerOptions) {
+      console.warn('PDF.js GlobalWorkerOptions not available, initializing...');
+      // Try to initialize if missing
+      if (typeof lib === 'object') {
+        (lib as any).GlobalWorkerOptions = { workerSrc: "" };
+      } else {
+        throw new Error('PDF.js GlobalWorkerOptions not available and cannot initialize');
+      }
+    }
+    
+    const isBrowser = typeof window !== "undefined" && typeof document !== "undefined";
 
-  cachedLib = lib;
-  return lib;
+    if (isBrowser) {
+      try {
+        const workerUrl = await resolveWorkerUrl();
+        lib.GlobalWorkerOptions.workerSrc = workerUrl;
+        console.log('[PDF] Worker URL set successfully:', workerUrl);
+      } catch (error) {
+        console.warn('[PDF] Failed to resolve PDF worker URL, using empty fallback:', error);
+        lib.GlobalWorkerOptions.workerSrc = "";
+      }
+    } else {
+      // Server-side rendering - disable worker
+      lib.GlobalWorkerOptions.workerSrc = "";
+      console.log('[PDF] Server-side mode: worker disabled');
+    }
+
+    cachedLib = lib;
+    return lib;
+  } catch (error) {
+    console.error('[PDF] Critical error loading PDF.js:', error);
+    throw new Error(`Failed to initialize PDF.js: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 }
 
 // Optional helper
