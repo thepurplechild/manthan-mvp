@@ -3,10 +3,11 @@
 
 import Link from 'next/link'
 import { ArrowRight, Shield, Star } from 'lucide-react'
-import { useEffect } from 'react'
+import { useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
-export default function HomePage() {
+// Component to handle search params with Suspense boundary
+function SearchParamsHandler() {
   const router = useRouter()
   const searchParams = useSearchParams()
   
@@ -20,6 +21,17 @@ export default function HomePage() {
       return
     }
   }, [searchParams, router])
+  
+  return null
+}
+
+// Loading fallback component
+function SearchParamsFallback() {
+  return <div style={{ display: 'none' }}>Loading...</div>
+}
+
+// Main homepage component
+function HomePageContent() {
   return (
     <div className="min-h-screen relative overflow-hidden gradient-indian-bg">
       {/* Faint geometric motif overlay */}
@@ -153,6 +165,18 @@ export default function HomePage() {
         </div>
       </footer>
     </div>
+  )
+}
+
+// Main export with Suspense boundary
+export default function HomePage() {
+  return (
+    <>
+      <Suspense fallback={<SearchParamsFallback />}>
+        <SearchParamsHandler />
+      </Suspense>
+      <HomePageContent />
+    </>
   )
 }
 
