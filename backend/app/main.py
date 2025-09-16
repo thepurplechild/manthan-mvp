@@ -15,3 +15,13 @@ app.add_middleware(
 app.include_router(ingestion.router, prefix="/api/ingestions", tags=["ingestions"])
 app.include_router(recommendations.router, prefix="/api/recommendations", tags=["recommendations"])
 
+@app.get("/")
+def read_root():
+    """Root endpoint - API health check"""
+    return {"message": "Manthan API is running", "version": "0.2", "status": "healthy"}
+
+@app.get("/health")
+def health_check():
+    """Health check endpoint"""
+    return {"status": "healthy", "message": "API is operational"}
+
