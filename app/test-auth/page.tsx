@@ -63,8 +63,9 @@ export default function AuthTestPage() {
       } else {
         setMessage(`⚠️ Signup response unclear: ${JSON.stringify(data)}`);
       }
-    } catch (err: any) {
-      setError(`❌ Signup failed: ${err.message}`);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'An unexpected error occurred';
+      setError(`❌ Signup failed: ${message}`);
     }
   };
 
@@ -78,8 +79,9 @@ export default function AuthTestPage() {
 
       if (error) throw error;
       setMessage(`✅ Login successful!`);
-    } catch (err: any) {
-      setError(`❌ Login failed: ${err.message}`);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'An unexpected error occurred';
+      setError(`❌ Login failed: ${message}`);
     }
   };
 
@@ -92,8 +94,9 @@ export default function AuthTestPage() {
 
       if (error) throw error;
       setMessage(`✅ Password reset email sent to ${testEmail}`);
-    } catch (err: any) {
-      setError(`❌ Password reset failed: ${err.message}`);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'An unexpected error occurred';
+      setError(`❌ Password reset failed: ${message}`);
     }
   };
 
@@ -103,8 +106,9 @@ export default function AuthTestPage() {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
       setMessage(`✅ Logout successful!`);
-    } catch (err: any) {
-      setError(`❌ Logout failed: ${err.message}`);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'An unexpected error occurred';
+      setError(`❌ Logout failed: ${message}`);
     }
   };
 
@@ -115,8 +119,9 @@ export default function AuthTestPage() {
       if (error) throw error;
       
       setMessage(`📋 Session: ${session ? 'Active' : 'None'}\n${session ? JSON.stringify(session.user, null, 2) : 'No user session'}`);
-    } catch (err: any) {
-      setError(`❌ Session check failed: ${err.message}`);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'An unexpected error occurred';
+      setError(`❌ Session check failed: ${message}`);
     }
   };
 
