@@ -3,6 +3,13 @@ import { Worker } from 'worker_threads';
 import path from 'path';
 import fs from 'fs';
 
+// Type declarations for runtime environment detection
+declare global {
+  const EdgeRuntime: string | undefined;
+  const Deno: any;
+  const Bun: any;
+}
+
 interface JobData {
   resolve: Function;
   reject: Function;

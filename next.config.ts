@@ -13,10 +13,11 @@ const nextConfig: NextConfig = {
   },
   
   // Note: Cross-origin issues should be handled via API route CORS headers (configured in vercel.json)
+  
+  // Exclude Supabase modules from Edge Runtime to prevent Node.js API compatibility issues
+  serverExternalPackages: ['@supabase/supabase-js', '@supabase/realtime-js', '@supabase/postgrest-js', '@supabase/storage-js'],
 
-
-
-  webpack: (config, { isServer }) => {
+  webpack: (config, { isServer, nextRuntime }) => {
     // 1) Emit pdf.js worker files as asset URLs so dynamic import returns a string
     config.module.rules.push({
       test: /pdf\.worker(\.min)?\.(m)?js$/,
