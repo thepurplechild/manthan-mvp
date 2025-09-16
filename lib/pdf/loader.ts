@@ -29,18 +29,37 @@ async function importPdfJs(): Promise<PdfJsLike> {
   // 1) Root entry (preferred in newer versions)
   try {
     const m = (await import("pdfjs-dist")) as unknown as { default?: PdfJsLike } & Partial<PdfJsLike>;
-    return (m.default ?? (m as PdfJsLike));
-  } catch (_) {
-    // 2) Build .mjs
-    try {
-      const m = (await import("pdfjs-dist/build/pdf.mjs")) as unknown as { default?: PdfJsLike } & Partial<PdfJsLike>;
-      return (m.default ?? (m as PdfJsLike));
-    } catch (_) {
-      // 3) Build non-min .js
-      const m = (await import("pdfjs-dist/build/pdf.js")) as unknown as { default?: PdfJsLike } & Partial<PdfJsLike>;
-      return (m.default ?? (m as PdfJsLike));
+    const lib = m.default ?? (m as PdfJsLike);
+    if (lib && typeof lib.getDocument === 'function' && lib.GlobalWorkerOptions !== undefined) {
+      return lib;
     }
+  } catch (_) {
+    // Continue to next attempt
   }
+  
+  // 2) Build .mjs
+  try {
+    const m = (await import("pdfjs-dist/build/pdf.mjs")) as unknown as { default?: PdfJsLike } & Partial<PdfJsLike>;
+    const lib = m.default ?? (m as PdfJsLike);
+    if (lib && typeof lib.getDocument === 'function' && lib.GlobalWorkerOptions !== undefined) {
+      return lib;
+    }
+  } catch (_) {
+    // Continue to next attempt
+  }
+  
+  // 3) Build non-min .js (final attempt)
+  try {
+    const m = (await import("pdfjs-dist/build/pdf.js")) as unknown as { default?: PdfJsLike } & Partial<PdfJsLike>;
+    const lib = m.default ?? (m as PdfJsLike);
+    if (lib && typeof lib.getDocument === 'function' && lib.GlobalWorkerOptions !== undefined) {
+      return lib;
+    }
+  } catch (_) {
+    // Final fallback failed
+  }
+  
+  throw new Error('Unable to load PDF.js from any known entry point');
 }
 
 async function resolveWorkerUrl(): Promise<string> {
@@ -69,11 +88,26 @@ export async function loadPdfjs(): Promise<PdfJsLike> {
   if (cachedLib) return cachedLib;
 
   const lib = await importPdfJs();
+  
+  // Add null checks to prevent "Cannot read properties of undefined" errors
+  if (!lib) {
+    throw new Error('Failed to load PDF.js library');
+  }
+  
+  if (!lib.GlobalWorkerOptions) {
+    throw new Error('PDF.js GlobalWorkerOptions not available');
+  }
+  
   const isBrowser = typeof window !== "undefined" && typeof document !== "undefined";
 
   if (isBrowser) {
-    const workerUrl = await resolveWorkerUrl();
-    lib.GlobalWorkerOptions.workerSrc = workerUrl;
+    try {
+      const workerUrl = await resolveWorkerUrl();
+      lib.GlobalWorkerOptions.workerSrc = workerUrl;
+    } catch (error) {
+      console.warn('Failed to resolve PDF worker URL:', error);
+      lib.GlobalWorkerOptions.workerSrc = "";
+    }
   } else {
     lib.GlobalWorkerOptions.workerSrc = "";
   }
