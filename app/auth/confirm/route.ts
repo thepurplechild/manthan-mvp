@@ -15,14 +15,17 @@ export async function GET(request: NextRequest) {
   // Handle the `code` param (exchange code for a session)
   if (code) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (!error) return NextResponse.redirect(new URL(next, request.url));
+    if (!error) {
+      // Redirect to verification success page instead of directly to dashboard
+      return NextResponse.redirect(new URL('/auth/verification-success', request.url));
+    }
     redirect(`/auth/error?error=${encodeURIComponent(error?.message ?? 'Code exchange failed')}`);
   }
 
   // Fallback: handle legacy token_hash/type verification
   if (token_hash && type) {
     const { error } = await supabase.auth.verifyOtp({ type, token_hash });
-    if (!error) return NextResponse.redirect(new URL(next, request.url));
+    if (!error) return NextResponse.redirect(new URL('/auth/verification-success', request.url));
     redirect(`/auth/error?error=${encodeURIComponent(error?.message ?? 'OTP verification failed')}`);
   }
 

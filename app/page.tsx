@@ -3,8 +3,23 @@
 
 import Link from 'next/link'
 import { ArrowRight, Shield, Star } from 'lucide-react'
+import { useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 export default function HomePage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  
+  // Handle email verification redirects
+  useEffect(() => {
+    const code = searchParams.get('code')
+    if (code) {
+      // Redirect to proper confirmation route
+      const next = searchParams.get('next') || '/dashboard'
+      router.replace(`/auth/confirm?code=${code}&next=${encodeURIComponent(next)}`)
+      return
+    }
+  }, [searchParams, router])
   return (
     <div className="min-h-screen relative overflow-hidden gradient-indian-bg">
       {/* Faint geometric motif overlay */}
