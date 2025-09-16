@@ -7,8 +7,12 @@ import { POST as processIngestion } from '../run/route'
 /**
  * Direct processing endpoint that bypasses the KV queue
  * This is a fallback when the cron job system is not working
+ * 
+ * SECURITY NOTE: This endpoint only processes user-owned ingestions.
+ * Stuck job recovery has been moved to admin-only endpoint for security.
  */
 export async function POST(req: NextRequest) {
+
   // Rate limiting: max 5 direct processing attempts per minute per IP
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
   const rl = rateLimit(`direct-process:${ip}`, 5, 60000)

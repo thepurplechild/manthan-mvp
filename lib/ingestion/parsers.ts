@@ -18,6 +18,7 @@ import {
   IngestionProgressCallback
 } from './types';
 import { logger } from './logger';
+import { pdfWorkerManager } from '../workers/pdf-worker-manager';
 
 // PDF.js safe dynamic loader (modern entry points)
 type PdfjsLib = {
@@ -426,7 +427,14 @@ export async function parsePdfFile(
       details: 'Loading PDF document'
     });
 
-    const pdfData = await pdfParse(buffer);
+    // Use worker thread instead of blocking operation
+    const pdfData = await pdfWorkerManager.processPdf(buffer, filename, (progress) => {
+      progressCallback?.({
+        currentStep: progress.step,
+        progress: Math.min(20 + (progress.progress * 0.4), 60), // Scale to 20-60% range
+        details: progress.step
+      });
+    });
 
     progressCallback?.({
       currentStep: 'Extracting text content',
@@ -450,12 +458,14 @@ export async function parsePdfFile(
         timestamp: new Date()
       });
 
-      // Attempt OCR fallback
-      const ocrText = await ocrPdfBuffer(
-        buffer,
-        progressCallback,
-        (w) => warnings.push(w)
-      );
+      // Attempt OCR fallback using worker thread
+      const ocrText = await pdfWorkerManager.processOcr(buffer, filename, (progress) => {
+        progressCallback?.({
+          currentStep: progress.step,
+          progress: Math.min(65 + (progress.progress * 0.3), 95), // Scale to 65-95% range
+          details: progress.step
+        });
+      });
 
       if (ocrText && ocrText.trim().length > 0) {
         content = (content || '').trim() ? `${content}\n\n${ocrText}` : ocrText;

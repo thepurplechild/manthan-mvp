@@ -17,10 +17,11 @@ export default function UploadPage() {
   useEffect(() => {
     let timer: NodeJS.Timeout | undefined
     if (ingestionId) {
-      // Poll ingestion status every 2s
+      // Poll ingestion status every 4s (reduced from 2s to reduce server load)
       timer = setInterval(async () => {
-        const r = await fetch(`/api/ingestions/status?id=${ingestionId}`)
-        if (r.ok) {
+        try {
+          const r = await fetch(`/api/ingestions/status?id=${ingestionId}`)
+          if (r.ok) {
           const j = await r.json()
           const currentStatus = j.status || 'processing'
           setProgress(j.progress || 0)
@@ -80,8 +81,20 @@ export default function UploadPage() {
           if (currentStatus === 'succeeded' || currentStatus === 'failed') {
             if (timer) clearInterval(timer)
           }
+        } else {
+          // Stop polling on HTTP errors to reduce server load
+          console.warn('[upload] Status API returned error, stopping polling:', r.status)
+          if (timer) clearInterval(timer)
+          if (r.status === 404) {
+            setError('Upload session expired. Please try uploading again.')
+            setStatus('failed')
+          }
         }
-      }, 2000)
+        } catch (fetchError) {
+          console.warn('[upload] Network error during status check:', fetchError)
+          // Don't stop polling on network errors, just log them
+        }
+      }, 4000) // Changed from 2000ms to 4000ms
     }
     return () => { if (timer) clearInterval(timer) }
   }, [ingestionId, projectId, queuedSince, stuckRetryAttempted])
