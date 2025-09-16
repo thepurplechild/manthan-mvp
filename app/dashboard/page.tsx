@@ -1,7 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from 'next/link'
-import Navigation from '@/components/Navigation'
 import { Plus, FileText, Clock, CheckCircle, BarChart3, Upload, Eye, Download, Sparkles, Newspaper, TrendingUp, Building2 } from 'lucide-react'
 
 export default async function Dashboard() {
@@ -102,9 +101,6 @@ export default async function Dashboard() {
 
   return (
     <div className="min-h-screen gradient-indian-bg">
-      {/* Use consistent navigation */}
-      <Navigation />
-
       <div className="container mx-auto px-6 py-12">
         {/* Header Section */}
         <div className="mb-12">
