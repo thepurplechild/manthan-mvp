@@ -11,33 +11,89 @@ export default function UploadPage() {
   const [progress, setProgress] = useState<number>(0)
   const [status, setStatus] = useState<string>('idle')
   const [error, setError] = useState<string | null>(null)
+  const [stuckRetryAttempted, setStuckRetryAttempted] = useState(false)
+  const [queuedSince, setQueuedSince] = useState<number | null>(null)
 
   useEffect(() => {
-    let timer: ReturnType<typeof setTimeout> | undefined
+    let timer: NodeJS.Timeout | undefined
     if (ingestionId) {
       // Poll ingestion status every 2s
       timer = setInterval(async () => {
         const r = await fetch(`/api/ingestions/status?id=${ingestionId}`)
         if (r.ok) {
           const j = await r.json()
+          const currentStatus = j.status || 'processing'
           setProgress(j.progress || 0)
-          setStatus(j.status || 'processing')
+          setStatus(currentStatus)
+          
+          // Track when ingestion first becomes queued and reset when not queued
+          if (currentStatus === 'queued' && !queuedSince) {
+            setQueuedSince(Date.now())
+          } else if (currentStatus !== 'queued' && queuedSince) {
+            setQueuedSince(null) // Reset timer when no longer queued
+          }
+          
           // Extract project_id for navigation when complete
           if (j.project_id && !projectId) {
             setProjectId(j.project_id)
           }
-          if (j.status === 'succeeded' || j.status === 'failed') {
+          
+          // Auto-retry mechanism: if stuck in "queued" for more than 30 seconds, try direct processing
+          if (currentStatus === 'queued' && queuedSince && !stuckRetryAttempted) {
+            const timeStuck = Date.now() - queuedSince
+            if (timeStuck > 30000) { // 30 seconds
+              console.log('[upload] Ingestion stuck in queued status for', timeStuck, 'ms, attempting direct processing...')
+              setStuckRetryAttempted(true)
+              setStatus('retrying')
+              
+              try {
+                const retryRes = await fetch('/api/ingestions/process-direct', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ ingestion_id: ingestionId })
+                })
+                
+                if (retryRes.ok) {
+                  console.log('[upload] Direct processing triggered successfully')
+                  setProgress(40) // Show some progress
+                } else {
+                  const retryError = await retryRes.json()
+                  console.error('[upload] Direct processing failed:', retryError)
+                  
+                  // Don't mark as failed for benign errors (400 = not queued anymore)
+                  if (retryRes.status === 400) {
+                    console.log('[upload] Ingestion no longer queued - likely processing normally')
+                    // Keep current status, ingestion may have started processing
+                  } else {
+                    setError('Processing stuck - retry failed. Please try uploading again.')
+                    setStatus('failed')
+                  }
+                }
+              } catch (retryErr) {
+                console.error('[upload] Direct processing request failed:', retryErr)
+                setError('Processing stuck - retry failed. Please try uploading again.')
+                setStatus('failed')
+              }
+            }
+          }
+          
+          if (currentStatus === 'succeeded' || currentStatus === 'failed') {
             if (timer) clearInterval(timer)
           }
         }
       }, 2000)
     }
     return () => { if (timer) clearInterval(timer) }
-  }, [ingestionId, projectId])
+  }, [ingestionId, projectId, queuedSince, stuckRetryAttempted])
 
   const upload = async () => {
     setError(null)
     if (!file) return
+    
+    // Reset retry state for new upload
+    setStuckRetryAttempted(false)
+    setQueuedSince(null)
+    
     setStatus('uploading')
     setProgress(0)
     
@@ -64,7 +120,7 @@ export default function UploadPage() {
 
   const isComplete = status === 'succeeded'
   const isFailed = status === 'failed'
-  const isProcessing = status === 'queued' || status === 'running' || status === 'uploading'
+  const isProcessing = status === 'queued' || status === 'running' || status === 'uploading' || status === 'retrying'
   
   return (
     <div className="min-h-screen gradient-indian-bg">
@@ -185,6 +241,16 @@ export default function UploadPage() {
               </div>
             </div>
           )}
+
+          {/* Enhanced Upload Link */}
+          <div className="text-center mt-8">
+            <Link 
+              href="/projects/new" 
+              className="text-manthan-charcoal-600 hover:text-manthan-saffron-600 text-sm"
+            >
+              Need advanced upload features? Try our enhanced project upload →
+            </Link>
+          </div>
         </div>
       </div>
     </div>

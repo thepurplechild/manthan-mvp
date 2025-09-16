@@ -278,7 +278,7 @@ export function SignUpForm({
                   <div className="space-y-4 text-sm">
                     <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
                       <h4 className="font-semibold mb-2 text-purple-900">Your Rights as a Creator:</h4>
-                      <ul className="space-y-2 text-gray-700">
+                      <ul className="space-y-2 text-gray-800">
                         <li>• I understand my uploaded script will be used only for the purpose of generating my project's pitch materials.</li>
                         <li>• I understand my script and personal data will never be shared with third parties without my explicit, case-by-case permission.</li>
                         <li>• I understand my intellectual property will not be used to train any public or third-party AI models.</li>
@@ -286,7 +286,7 @@ export function SignUpForm({
                         <li>• I can request deletion of my data and scripts at any time.</li>
                       </ul>
                     </div>
-                    <p className="text-gray-600">
+                    <p className="text-gray-800">
                       Manthan is committed to protecting creator rights and building a platform based on trust and transparency.
                     </p>
                   </div>
@@ -300,7 +300,7 @@ export function SignUpForm({
                   onCheckedChange={(checked) => setAcceptedRights(checked as boolean)}
                   className="mt-1 border-white/30 data-[state=checked]:bg-purple-500 data-[state=checked]:border-purple-500"
                 />
-                <Label htmlFor="rights-agreement" className="text-sm leading-relaxed text-white/80 cursor-pointer">
+                <Label htmlFor="rights-agreement" className="text-sm leading-relaxed text-white cursor-pointer">
                   I have read and agree to the Creator's Bill of Rights. I understand that my intellectual property will be protected and used only for generating my pitch materials.
                 </Label>
               </div>
